@@ -7,6 +7,7 @@ import { useTranslation } from '../hooks/useTranslation';
 import Card from '../components/Card';
 import Input from '../components/Input';
 import Button from '../components/Button';
+import Brand from '../components/Brand';
 
 export default function Login() {
   const { login } = useAuth();
@@ -58,11 +59,11 @@ export default function Login() {
       <div className="w-full max-w-md">
         
         <div className="text-center mb-8">
-          <Link to="/" className="inline-flex items-center justify-center w-12 h-12 bg-primary rounded-xl text-white font-bold text-2xl mb-4">
-            L
+          <Link to="/" aria-label="lendit home" className="inline-flex mb-4">
+            <Brand iconClassName="w-12 h-12" textClassName="text-2xl" />
           </Link>
           <h1 className="text-2xl font-bold text-gray-900">{t('welcomeBack')}</h1>
-          <p className="text-gray-500 mt-2">Sign in to continue to LendIt</p>
+          <p className="text-gray-500 mt-2">Sign in to continue to lendit</p>
         </div>
 
         <Card padding="p-8">

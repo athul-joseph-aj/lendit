@@ -4,6 +4,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, Package, Wrench, Search, PlusCircle, LayoutDashboard, ClipboardList } from 'lucide-react';
 import { useTranslation } from '../hooks/useTranslation';
 import LanguageSelector from './LanguageSelector';
+import Brand from './Brand';
 
 export default function Navbar() {
   const { t } = useTranslation();
@@ -37,11 +38,8 @@ export default function Navbar() {
         <div className="container-main flex items-center justify-between h-16">
           
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 text-primary font-bold text-xl tracking-tight">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white">
-              L
-            </div>
-            LendIt
+          <Link to="/" aria-label="lendit home">
+            <Brand />
           </Link>
 
           {/* Desktop Navigation */}

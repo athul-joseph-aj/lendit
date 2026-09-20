@@ -7,6 +7,7 @@ import { useTranslation } from '../hooks/useTranslation';
 import Card from '../components/Card';
 import Input from '../components/Input';
 import Button from '../components/Button';
+import Brand from '../components/Brand';
 
 export default function Register() {
   const { register } = useAuth();
@@ -60,8 +61,8 @@ export default function Register() {
       <div className="w-full max-w-md">
         
         <div className="text-center mb-8">
-          <Link to="/" className="inline-flex items-center justify-center w-12 h-12 bg-primary rounded-xl text-white font-bold text-2xl mb-4">
-            L
+          <Link to="/" aria-label="lendit home" className="inline-flex mb-4">
+            <Brand iconClassName="w-12 h-12" textClassName="text-2xl" />
           </Link>
           <h1 className="text-2xl font-bold text-gray-900">{t('joinLendIt')}</h1>
           <p className="text-gray-500 mt-2">Create an account to start renting</p>
