@@ -19,6 +19,15 @@ import Activity from './pages/Activity';
 import ListItem from './pages/ListItem';
 import NotFound from './pages/NotFound';
 
+// Services Pages
+import ProviderList from './pages/services/ProviderList';
+import ProviderProfile from './pages/services/ProviderProfile';
+import RequestForm from './pages/services/RequestForm';
+import MyRequests from './pages/services/MyRequests';
+import ProviderRegister from './pages/services/ProviderRegister';
+import ProviderDashboard from './pages/services/ProviderDashboard';
+import ProviderEarnings from './pages/services/ProviderEarnings';
+
 function App() {
   return (
     <Router>
@@ -33,9 +42,18 @@ function App() {
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
                 <Route path="/rent" element={<Rent />} />
-                <Route path="/services" element={<Services />} />
 
-                {/* Protected Routes */}
+                {/* Services Module Routes (Public - No Authentication Required) */}
+                <Route path="/services" element={<Services />} />
+                <Route path="/services/provider/:providerId" element={<ProviderProfile />} />
+                <Route path="/services/request/:providerId" element={<RequestForm />} />
+                <Route path="/services/my-requests" element={<MyRequests />} />
+                <Route path="/services/provider-register" element={<ProviderRegister />} />
+                <Route path="/services/provider-dashboard" element={<ProviderDashboard />} />
+                <Route path="/services/provider-earnings" element={<ProviderEarnings />} />
+                <Route path="/services/:category" element={<ProviderList />} />
+
+                {/* Protected General Routes */}
                 <Route 
                   path="/profile" 
                   element={
@@ -74,3 +92,4 @@ function App() {
 }
 
 export default App;
+
