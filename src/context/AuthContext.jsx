@@ -1,4 +1,3 @@
-// src/context/AuthContext.jsx
 // Auth is disabled — a fixed owner identity is used for all Firestore operations.
 // This lets you use the app without Firebase Authentication.
 

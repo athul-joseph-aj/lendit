@@ -14,6 +14,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Profile from './pages/Profile';
 import Rent from './pages/Rent';
+import ItemDetails from './pages/ItemDetails';
 import Services from './pages/Services';
 import Activity from './pages/Activity';
 import NotFound from './pages/NotFound';
@@ -40,7 +41,8 @@ function App() {
                 <Route path="/"         element={<Home />} />
                 <Route path="/login"    element={<Login />} />
                 <Route path="/register" element={<Register />} />
-                <Route path="/rent"     element={<Rent />} />
+                <Route path="/rent" element={<Rent />} />
+                <Route path="/rent/:itemId" element={<ItemDetails />} />
                 <Route path="/services" element={<Services />} />
 
                 {/* ── Protected (general) Routes ── */}

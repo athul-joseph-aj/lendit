@@ -13,6 +13,7 @@ export const COLLECTIONS = {
   USERS:             'users',
   ITEMS:             'items',
   BOOKINGS:          'bookings',
+  ITEM_REQUESTS:     'itemRequests',
   SERVICE_PROVIDERS: 'serviceProviders',
   SERVICE_REQUESTS:  'serviceRequests',
 };
@@ -21,6 +22,7 @@ export const COLLECTIONS = {
 export const usersCol            = collection(db, COLLECTIONS.USERS);
 export const itemsCol            = collection(db, COLLECTIONS.ITEMS);
 export const bookingsCol         = collection(db, COLLECTIONS.BOOKINGS);
+export const itemRequestsCol     = collection(db, COLLECTIONS.ITEM_REQUESTS);
 export const serviceProvidersCol = collection(db, COLLECTIONS.SERVICE_PROVIDERS);
 export const serviceRequestsCol  = collection(db, COLLECTIONS.SERVICE_REQUESTS);
 
@@ -28,6 +30,7 @@ export const serviceRequestsCol  = collection(db, COLLECTIONS.SERVICE_REQUESTS);
 export const getUserRef            = (userId)     => doc(db, COLLECTIONS.USERS,             userId);
 export const getItemRef            = (itemId)     => doc(db, COLLECTIONS.ITEMS,             itemId);
 export const getBookingRef         = (bookingId)  => doc(db, COLLECTIONS.BOOKINGS,          bookingId);
+export const getItemRequestRef     = (requestId)  => doc(db, COLLECTIONS.ITEM_REQUESTS,     requestId);
 export const getProviderRef        = (providerId) => doc(db, COLLECTIONS.SERVICE_PROVIDERS, providerId);
 export const getServiceRequestRef  = (requestId)  => doc(db, COLLECTIONS.SERVICE_REQUESTS,  requestId);
 
@@ -71,7 +74,24 @@ export const getServiceRequestRef  = (requestId)  => doc(db, COLLECTIONS.SERVICE
  * @property {import('firebase/firestore').Timestamp} endDate
  * @property {number}   totalAmount
  * @property {number}   securityDeposit
- * @property {string}   status           - 'pending' | 'active' | 'done' | 'canceled'
+ * @property {string}   status           - 'pending' | 'accepted' | 'rejected' | 'active' | 'completed' | 'cancelled'
+ * @property {string}   pickupOption     - 'pickup' | 'delivery'
+ * @property {boolean}  [returnReminderEnabled]
+ * @property {import('firebase/firestore').Timestamp} [returnReminderAt]
+ * @property {import('firebase/firestore').Timestamp} createdAt
+ */
+
+/**
+ * @typedef {Object} ItemRequestDoc
+ * @property {string}   requesterId
+ * @property {string}   itemName
+ * @property {string}   category
+ * @property {string}   description
+ * @property {string}   location
+ * @property {import('firebase/firestore').Timestamp} startDate
+ * @property {import('firebase/firestore').Timestamp} endDate
+ * @property {string}   [budget]
+ * @property {string}   status           - 'open' | 'fulfilled' | 'cancelled'
  * @property {import('firebase/firestore').Timestamp} createdAt
  */
 

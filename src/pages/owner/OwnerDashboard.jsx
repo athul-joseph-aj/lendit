@@ -5,6 +5,7 @@
 import { useEffect, useState } from 'react';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../firebase/firebase';
+import { DEMO_MODE } from '../../config/demo';
 import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from '../../hooks/useTranslation';
 import { Link } from 'react-router-dom';
@@ -41,7 +42,9 @@ export default function OwnerDashboard() {
 
         // Fetch all owner bookings
         const bookingsSnap = await getDocs(
-          query(collection(db, 'bookings'), where('ownerId', '==', uid))
+          DEMO_MODE
+            ? query(collection(db, 'bookings'))
+            : query(collection(db, 'bookings'), where('ownerId', '==', uid))
         );
 
         let pending = 0, active = 0, completed = 0, totalEarnings = 0;
