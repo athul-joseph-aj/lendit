@@ -1,8 +1,9 @@
 // src/pages/services/ProviderDashboard.jsx
 // Service provider dashboard: manage incoming requests, accepted jobs, and view earnings.
+// 100% stored in Firebase Firestore. Zero localStorage.
 
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useMemo } from 'react';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Wrench,
   Clock,
@@ -18,25 +19,32 @@ import {
   Settings,
   ArrowRight,
   Phone,
-  CheckCheck
+  CheckCheck,
+  ChevronDown
 } from 'lucide-react';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase/firebase';
-import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useProviderProfile } from '../../hooks/services/useProviderProfile';
+import { useServiceProviders } from '../../hooks/services/useServiceProviders';
 import { useProviderRequests } from '../../hooks/services/useServiceRequests';
-import { getProviderId } from '../../utils/userSession';
 import RequestStatusBadge from '../../components/services/RequestStatusBadge';
 import { SERVICE_CATEGORIES } from '../Services';
 
 export default function ProviderDashboard() {
-  const { currentUser } = useAuth();
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const providerId = getProviderId(currentUser);
-  const { provider, loading: profileLoading } = useProviderProfile(providerId);
-  const { requests, loading: requestsLoading, error } = useProviderRequests(providerId);
+  // Load all providers directly from Firebase Firestore
+  const { providers: allProviders, loading: allProvidersLoading } = useServiceProviders();
+
+  // Provider ID: from URL search params, or default to first provider in Firestore
+  const urlProviderId = searchParams.get('providerId');
+  const activeProviderId = urlProviderId || (allProviders.length > 0 ? allProviders[0].id : null);
+
+  const { provider, loading: profileLoading } = useProviderProfile(activeProviderId);
+  const { requests, loading: requestsLoading, error } = useProviderRequests(activeProviderId);
 
   const [activeTab, setActiveTab] = useState('incoming'); // 'incoming' | 'upcoming' | 'completed' | 'all'
   const [updatingId, setUpdatingId] = useState(null);
@@ -66,6 +74,10 @@ export default function ProviderDashboard() {
     };
   };
 
+  const handleProviderSelect = (newId) => {
+    setSearchParams({ providerId: newId });
+  };
+
   const handleUpdateStatus = async (requestId, newStatus) => {
     if (newStatus === 'rejected') {
       if (!window.confirm(t('confirmReject') || 'Are you sure you want to reject this request?')) {
@@ -81,14 +93,14 @@ export default function ProviderDashboard() {
         updatedAt: serverTimestamp(),
       });
     } catch (err) {
-      console.error('Error updating request status:', err);
+      console.error('Error updating request status in Firebase Firestore:', err);
       setActionError(err.message || 'Failed to update request');
     } finally {
       setUpdatingId(null);
     }
   };
 
-  const loading = profileLoading || requestsLoading;
+  const loading = allProvidersLoading || (activeProviderId && (profileLoading || requestsLoading));
 
   if (loading) {
     return (
@@ -98,8 +110,8 @@ export default function ProviderDashboard() {
     );
   }
 
-  // If user is not yet registered as a service provider
-  if (!provider) {
+  // If no providers exist in Firebase Firestore yet
+  if (!provider && allProviders.length === 0) {
     return (
       <div className="flex-1 bg-gray-50 min-h-screen py-12 px-4 sm:px-6 lg:px-8 flex items-center justify-center">
         <div className="max-w-md w-full bg-white rounded-2xl border border-gray-200/80 p-8 text-center shadow-sm">
@@ -110,7 +122,7 @@ export default function ProviderDashboard() {
             {t('becomeProvider')}
           </h2>
           <p className="text-sm text-gray-500 mb-6 leading-relaxed">
-            You are not registered as a service provider yet. Join LendIt to offer your local services and start getting job requests.
+            No service providers are registered in Firebase yet. Add your details to start receiving job requests.
           </p>
           <Link
             to="/services/provider-register"
@@ -124,11 +136,41 @@ export default function ProviderDashboard() {
     );
   }
 
+  const currentProvider = provider || allProviders[0];
   const filteredRequests = getFilteredList();
 
   return (
     <div className="flex-1 bg-gray-50 min-h-screen py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-5xl mx-auto">
+        {/* Top Switcher Bar: Provider Identity in Firebase */}
+        {allProviders.length > 1 && (
+          <div className="bg-white rounded-xl border border-gray-200 p-3 mb-6 flex flex-wrap items-center justify-between gap-3 shadow-sm">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Viewing Provider:
+              </span>
+              <select
+                value={currentProvider?.id || ''}
+                onChange={(e) => handleProviderSelect(e.target.value)}
+                className="text-xs font-bold text-gray-900 bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#4682B4]"
+              >
+                {allProviders.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} ({p.location}) - {p.services?.join(', ')}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <Link
+              to="/services/provider-register"
+              className="text-xs font-semibold text-[#4682B4] hover:underline"
+            >
+              + Register Another Provider
+            </Link>
+          </div>
+        )}
+
         {/* Top Header */}
         <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
           <div>
@@ -138,30 +180,30 @@ export default function ProviderDashboard() {
               </h1>
               <span
                 className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                  provider.isAvailable
+                  currentProvider?.isAvailable
                     ? 'bg-green-50 text-green-700 border border-green-200'
                     : 'bg-gray-100 text-gray-600 border border-gray-200'
                 }`}
               >
-                {provider.isAvailable ? 'Available for Jobs' : 'Unavailable'}
+                {currentProvider?.isAvailable ? 'Available for Jobs' : 'Unavailable'}
               </span>
             </div>
             <p className="text-sm text-gray-500 mt-1">
-              Welcome back, <span className="font-semibold text-gray-800">{provider.name || currentUser?.displayName}</span>
+              Provider: <span className="font-semibold text-gray-800">{currentProvider?.name}</span> ({currentProvider?.location}) • Phone: {currentProvider?.phone}
             </p>
           </div>
 
           {/* Action Links */}
           <div className="flex items-center gap-3">
             <Link
-              to="/services/provider-earnings"
+              to={`/services/provider-earnings?providerId=${currentProvider?.id}`}
               className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-xl text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 transition-colors shadow-sm"
             >
               <TrendingUp className="w-3.5 h-3.5" />
               <span>{t('providerEarnings') || 'Earnings'}</span>
             </Link>
             <Link
-              to="/services/provider-register"
+              to={`/services/provider-register?providerId=${currentProvider?.id}`}
               className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-xl text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 transition-colors shadow-sm"
             >
               <Settings className="w-3.5 h-3.5" />
@@ -198,7 +240,7 @@ export default function ProviderDashboard() {
               {t('rating') || 'Rating'}
             </p>
             <p className="text-2xl font-bold text-gray-900">
-              ★ {provider.rating ? Number(provider.rating).toFixed(1) : '5.0'}
+              ★ {currentProvider?.rating ? Number(currentProvider.rating).toFixed(1) : '5.0'}
             </p>
           </div>
         </div>
@@ -299,6 +341,7 @@ export default function ProviderDashboard() {
                         </div>
                         <p className="text-xs text-gray-500 mt-0.5">
                           {t(meta.key)} {dateStr && `• Received ${dateStr}`}
+                          {req.customerPhone && ` • Contact: ${req.customerPhone}`}
                         </p>
                       </div>
                     </div>

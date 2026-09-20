@@ -1,8 +1,9 @@
 // src/pages/services/ProviderRegister.jsx
-// Service Provider registration & details editor — No authentication required!
+// Service Provider registration & details editor — 100% stored in Firebase Firestore.
+// Zero localStorage used.
 
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import {
   ArrowLeft,
   User,
@@ -23,10 +24,8 @@ import {
 } from 'lucide-react';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase/firebase';
-import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useProviderProfile } from '../../hooks/services/useProviderProfile';
-import { getProviderId, setProviderId } from '../../utils/userSession';
 import { uploadImageSafely } from '../../utils/imageUpload';
 import { SERVICE_CATEGORIES } from '../Services';
 
@@ -59,14 +58,14 @@ const WORKING_HOURS_PRESETS = [
 const PRICE_PRESETS = [199, 299, 499, 799];
 
 export default function ProviderRegister() {
-  const { currentUser } = useAuth();
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const fileInputRef = useRef(null);
 
-  // Identity: check currentUser first, else localStorage guest providerId
-  const activeProviderId = getProviderId(currentUser);
-  const { provider: existingProfile, loading: profileLoading } = useProviderProfile(activeProviderId);
+  // Optional query param: /services/provider-register?providerId=...
+  const queryProviderId = searchParams.get('providerId');
+  const { provider: existingProfile, loading: profileLoading } = useProviderProfile(queryProviderId);
 
   const [form, setForm] = useState({
     name: '',
@@ -88,11 +87,11 @@ export default function ProviderRegister() {
 
   const [detectingLocation, setDetectingLocation] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [savedProviderId, setSavedProviderId] = useState(null);
+  const [savedDocId, setSavedDocId] = useState(null);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
 
-  // Pre-fill existing data if provider profile already exists
+  // Pre-fill existing data if provider profile already exists in Firebase
   useEffect(() => {
     if (existingProfile) {
       setForm({
@@ -117,13 +116,8 @@ export default function ProviderRegister() {
         setExistingImageUrl(existingProfile.profileImage);
         setImagePreview(existingProfile.profileImage);
       }
-    } else if (currentUser) {
-      setForm((prev) => ({
-        ...prev,
-        name: currentUser.displayName || '',
-      }));
     }
-  }, [existingProfile, currentUser]);
+  }, [existingProfile]);
 
   const handleChange = (e) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -153,7 +147,7 @@ export default function ProviderRegister() {
     }
   };
 
-  // Quick geolocation detect
+  // Geolocation detect
   const handleDetectLocation = () => {
     if (!navigator.geolocation) {
       setError('Geolocation is not supported by your browser.');
@@ -165,14 +159,13 @@ export default function ProviderRegister() {
         try {
           const lat = pos.coords.latitude;
           const lon = pos.coords.longitude;
-          // Reverse geocode via free OpenStreetMap Nominatim
           const res = await fetch(
             `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`
           );
           const data = await res.json();
           const city = data.address?.city || data.address?.town || data.address?.suburb || data.address?.state || 'Local Area';
           setForm((prev) => ({ ...prev, location: city }));
-        } catch (err) {
+        } catch {
           setForm((prev) => ({ ...prev, location: 'Near My Location' }));
         } finally {
           setDetectingLocation(false);
@@ -216,24 +209,22 @@ export default function ProviderRegister() {
     setError('');
 
     try {
-      // Determine provider ID
-      let providerId = currentUser?.uid;
-      if (!providerId) {
-        providerId = activeProviderId || 'provider_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 6);
-      }
+      // Deterministic document ID based on phone or existing ID in Firebase
+      const cleanPhone = form.phone.replace(/\D/g, '');
+      const providerDocId = queryProviderId || `provider_${cleanPhone || Date.now().toString(36)}`;
 
-      // Safe image upload
+      // Safe image upload directly to cloud
       let profileImageUrl = existingImageUrl;
       if (imageFile) {
         const uploadedUrl = await uploadImageSafely(
           imageFile,
-          `serviceProviders/${providerId}/profile_${Date.now()}`
+          `serviceProviders/${providerDocId}/profile_${Date.now()}`
         );
         if (uploadedUrl) profileImageUrl = uploadedUrl;
       }
 
       const providerData = {
-        userId: providerId,
+        userId: providerDocId,
         name: form.name.trim(),
         phone: form.phone.trim(),
         services: selectedServices,
@@ -254,15 +245,13 @@ export default function ProviderRegister() {
         providerData.createdAt = serverTimestamp();
       }
 
-      // Write directly to Firestore
-      await setDoc(doc(db, 'serviceProviders', providerId), providerData, { merge: true });
+      // 100% saved directly in Firebase Firestore — no localStorage
+      await setDoc(doc(db, 'serviceProviders', providerDocId), providerData, { merge: true });
 
-      // Save provider identity in localStorage so no login is ever needed
-      setProviderId(providerId);
-      setSavedProviderId(providerId);
+      setSavedDocId(providerDocId);
       setSuccess(true);
     } catch (err) {
-      console.error('Error saving provider profile to Firestore:', err);
+      console.error('Error saving provider profile to Firebase Firestore:', err);
       setError(err.message || 'Failed to save details. Please check your connection.');
     } finally {
       setSubmitting(false);
@@ -290,14 +279,12 @@ export default function ProviderRegister() {
             {t('services')}
           </Link>
 
-          {activeProviderId && (
-            <Link
-              to="/services/provider-dashboard"
-              className="text-xs font-semibold text-[#4682B4] hover:underline"
-            >
-              {t('providerDashboard')} →
-            </Link>
-          )}
+          <Link
+            to="/services/provider-dashboard"
+            className="text-xs font-semibold text-[#4682B4] hover:underline"
+          >
+            {t('providerDashboard')} →
+          </Link>
         </div>
 
         {/* Success Modal / Banner */}
@@ -307,22 +294,22 @@ export default function ProviderRegister() {
               <CheckCircle2 className="w-8 h-8" />
             </div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              Details Saved Successfully!
+              Details Saved in Firebase!
             </h2>
             <p className="text-sm text-gray-600 max-w-md mx-auto mb-6">
-              Your service provider profile is now live in Firestore. Customers in{' '}
+              Your service provider profile is live in Firebase Firestore. Customers in{' '}
               <span className="font-semibold text-gray-900">{form.location}</span> can discover and book your services.
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <Link
-                to={`/services/provider/${savedProviderId || activeProviderId}`}
+                to={`/services/provider/${savedDocId}`}
                 className="w-full sm:w-auto px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-[#4682B4] hover:bg-[#3b6f9a] transition-all shadow-sm"
               >
-                View My Profile
+                View Public Profile
               </Link>
               <Link
-                to="/services/provider-dashboard"
+                to={`/services/provider-dashboard?providerId=${savedDocId}`}
                 className="w-full sm:w-auto px-5 py-2.5 rounded-xl text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 transition-all"
               >
                 Go to Dashboard
@@ -332,7 +319,7 @@ export default function ProviderRegister() {
                 onClick={() => setSuccess(false)}
                 className="w-full sm:w-auto px-5 py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-700"
               >
-                Edit Again
+                Edit Details
               </button>
             </div>
           </div>
@@ -343,7 +330,7 @@ export default function ProviderRegister() {
             <div className="p-6 sm:p-8 border-b border-gray-100 bg-gradient-to-b from-white to-gray-50/50">
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-[#4682B4]/10 text-[#4682B4] mb-3">
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>Quick & Simple Setup • No Login Required</span>
+                <span>Saved Directly to Firebase • Cloud Database</span>
               </div>
               <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
                 {existingProfile ? 'Update Provider Details' : 'Add Service Provider Details'}

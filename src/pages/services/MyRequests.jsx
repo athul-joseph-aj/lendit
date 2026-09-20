@@ -1,8 +1,9 @@
 // src/pages/services/MyRequests.jsx
-// Customer view of all their service requests.
+// Customer view of all their service requests — 100% queried from Firebase Firestore.
+// Zero localStorage used.
 
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   Calendar,
   Clock,
@@ -13,13 +14,13 @@ import {
   Loader2,
   Ban,
   ExternalLink,
+  Search,
+  Phone
 } from 'lucide-react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase/firebase';
-import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useMyServiceRequests } from '../../hooks/services/useServiceRequests';
-import { getActiveUserId } from '../../utils/userSession';
 import RequestStatusBadge from '../../components/services/RequestStatusBadge';
 import { SERVICE_CATEGORIES } from '../Services';
 
@@ -33,10 +34,14 @@ const TABS = [
 ];
 
 export default function MyRequests() {
-  const { currentUser } = useAuth();
   const { t } = useTranslation();
-  const customerId = getActiveUserId(currentUser);
-  const { requests, loading, error } = useMyServiceRequests(customerId);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const initialPhone = searchParams.get('phone') || '';
+  const [phoneFilter, setPhoneFilter] = useState(initialPhone);
+
+  // Queries directly from Firebase Firestore in real time
+  const { requests, loading, error } = useMyServiceRequests(phoneFilter);
 
   const [activeTab, setActiveTab] = useState('all');
   const [cancellingId, setCancellingId] = useState(null);
@@ -67,7 +72,7 @@ export default function MyRequests() {
         updatedAt: new Date(),
       });
     } catch (err) {
-      console.error('Error cancelling request:', err);
+      console.error('Error cancelling request in Firebase Firestore:', err);
       setCancelError(err.message || 'Failed to cancel request');
     } finally {
       setCancellingId(null);
@@ -90,21 +95,42 @@ export default function MyRequests() {
           </div>
           <Link
             to="/services"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg text-white bg-[#4682B4] hover:bg-[#3b6f9a] transition-colors shadow-sm"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg text-white bg-[#4682B4] hover:bg-[#3b6f9a] transition-colors shadow-sm"
           >
             <Wrench className="w-3.5 h-3.5" />
             {t('bookService') || 'Book a Service'}
           </Link>
         </div>
 
-        {/* Page title */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
-            {t('myRequests')}
-          </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            {t('trackServiceRequests') || 'Track and manage your requested home & local services'}
-          </p>
+        {/* Page title & Firebase cloud note */}
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
+              {t('myRequests')}
+            </h1>
+            <p className="text-sm text-gray-500 mt-0.5">
+              Live service requests queried directly from Firebase Firestore.
+            </p>
+          </div>
+
+          {/* Quick Phone Search filter */}
+          <div className="relative w-full sm:w-64">
+            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+            <input
+              type="tel"
+              placeholder="Search by your phone..."
+              value={phoneFilter}
+              onChange={(e) => {
+                setPhoneFilter(e.target.value);
+                if (e.target.value) {
+                  setSearchParams({ phone: e.target.value });
+                } else {
+                  setSearchParams({});
+                }
+              }}
+              className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-gray-200 bg-white text-xs text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#4682B4] shadow-sm"
+            />
+          </div>
         </div>
 
         {/* Status filter tabs */}
@@ -150,7 +176,7 @@ export default function MyRequests() {
         {loading && (
           <div className="py-20 text-center">
             <Loader2 className="w-8 h-8 animate-spin text-[#4682B4] mx-auto mb-3" />
-            <p className="text-sm text-gray-500">{t('loading') || 'Loading requests...'}</p>
+            <p className="text-sm text-gray-500">Querying Firebase Firestore...</p>
           </div>
         )}
 
@@ -161,14 +187,27 @@ export default function MyRequests() {
               <Wrench className="w-7 h-7" />
             </div>
             <h3 className="text-base font-semibold text-gray-900 mb-1">
-              {t('noRequests')}
+              {phoneFilter ? `No requests found for phone "${phoneFilter}"` : t('noRequests')}
             </h3>
             <p className="text-sm text-gray-500 max-w-sm mx-auto mb-6">
-              {t('noRequestsDesc')}
+              {phoneFilter
+                ? 'Check that the phone number matches the one entered when booking, or clear the search to view all requests.'
+                : t('noRequestsDesc')}
             </p>
+            {phoneFilter && (
+              <button
+                onClick={() => {
+                  setPhoneFilter('');
+                  setSearchParams({});
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 transition-all mr-3"
+              >
+                Clear Filter
+              </button>
+            )}
             <Link
               to="/services"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white bg-[#4682B4] hover:bg-[#3b6f9a] transition-all shadow-sm"
+              className="inline-flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-semibold text-white bg-[#4682B4] hover:bg-[#3b6f9a] transition-all shadow-sm"
             >
               <Wrench className="w-4 h-4" />
               {t('exploreServices') || 'Explore Services'}
@@ -204,11 +243,10 @@ export default function MyRequests() {
                           </h3>
                           <RequestStatusBadge status={req.status} />
                         </div>
-                        {createdDate && (
-                          <p className="text-xs text-gray-400 mt-0.5">
-                            {t('requestedOn') || 'Requested on'} {createdDate}
-                          </p>
-                        )}
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {req.customerName && <span className="font-medium text-gray-600 mr-2">{req.customerName}</span>}
+                          {createdDate && `${t('requestedOn') || 'Requested on'} ${createdDate}`}
+                        </p>
                       </div>
                     </div>
 
@@ -217,7 +255,7 @@ export default function MyRequests() {
                         to={`/services/provider/${req.providerId}`}
                         className="inline-flex items-center gap-1 text-xs font-medium text-[#4682B4] hover:text-[#3b6f9a] transition-colors"
                       >
-                        <span>{t('viewProvider') || 'Provider details'}</span>
+                        <span>{req.providerName || t('viewProvider') || 'Provider details'}</span>
                         <ExternalLink className="w-3.5 h-3.5" />
                       </Link>
                     )}

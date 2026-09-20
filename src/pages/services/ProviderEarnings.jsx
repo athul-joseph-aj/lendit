@@ -1,7 +1,8 @@
 // src/pages/services/ProviderEarnings.jsx
 // Provider earnings overview: stats, completed jobs, and earnings breakdown.
+// 100% stored and calculated from Firebase Firestore. Zero localStorage.
 
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
   TrendingUp,
@@ -14,22 +15,24 @@ import {
   Loader2,
   Wallet
 } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useProviderProfile } from '../../hooks/services/useProviderProfile';
+import { useServiceProviders } from '../../hooks/services/useServiceProviders';
 import { useProviderRequests } from '../../hooks/services/useServiceRequests';
-import { getProviderId } from '../../utils/userSession';
 import { SERVICE_CATEGORIES } from '../Services';
 
 export default function ProviderEarnings() {
-  const { currentUser } = useAuth();
   const { t } = useTranslation();
+  const [searchParams] = useSearchParams();
 
-  const providerId = getProviderId(currentUser);
-  const { provider, loading: profileLoading } = useProviderProfile(providerId);
-  const { requests, loading: requestsLoading } = useProviderRequests(providerId);
+  const { providers: allProviders, loading: allLoading } = useServiceProviders();
+  const urlProviderId = searchParams.get('providerId');
+  const activeProviderId = urlProviderId || (allProviders.length > 0 ? allProviders[0].id : null);
 
-  const loading = profileLoading || requestsLoading;
+  const { provider, loading: profileLoading } = useProviderProfile(activeProviderId);
+  const { requests, loading: requestsLoading } = useProviderRequests(activeProviderId);
+
+  const loading = allLoading || (activeProviderId && (profileLoading || requestsLoading));
 
   if (loading) {
     return (
@@ -39,13 +42,14 @@ export default function ProviderEarnings() {
     );
   }
 
+  const currentProvider = provider || allProviders[0];
   const completedRequests = requests.filter((r) => r.status === 'completed');
   const pendingRequests = requests.filter((r) => r.status === 'pending');
   const acceptedRequests = requests.filter((r) => r.status === 'accepted');
 
-  // Calculate total earnings from completed jobs
+  // Calculate total earnings directly from Firestore completed records
   const totalEarnings = completedRequests.reduce((sum, req) => {
-    const amount = Number(req.estimatedBudget) || Number(provider?.startingPrice) || 0;
+    const amount = Number(req.estimatedBudget) || Number(currentProvider?.startingPrice) || 0;
     return sum + amount;
   }, 0);
 
@@ -62,7 +66,7 @@ export default function ProviderEarnings() {
         {/* Navigation */}
         <div className="mb-6">
           <Link
-            to="/services/provider-dashboard"
+            to={`/services/provider-dashboard?providerId=${currentProvider?.id || ''}`}
             className="inline-flex items-center text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors"
           >
             <ArrowLeft className="w-4 h-4 mr-1" />
@@ -76,7 +80,8 @@ export default function ProviderEarnings() {
             {t('providerEarnings')}
           </h1>
           <p className="text-sm text-gray-500 mt-1">
-            {t('earningsNote')}
+            Earnings calculated live from completed jobs in Firebase Firestore for{' '}
+            <span className="font-semibold text-gray-800">{currentProvider?.name || 'Provider'}</span>.
           </p>
         </div>
 
@@ -141,10 +146,10 @@ export default function ProviderEarnings() {
         <div className="bg-white rounded-2xl border border-gray-200/80 shadow-sm overflow-hidden">
           <div className="p-6 border-b border-gray-100">
             <h2 className="text-base font-semibold text-gray-900">
-              Earnings History
+              Earnings History (From Firebase Firestore)
             </h2>
             <p className="text-xs text-gray-500 mt-0.5">
-              Detailed list of all completed service payments
+              Detailed ledger of all completed service jobs
             </p>
           </div>
 
@@ -155,14 +160,14 @@ export default function ProviderEarnings() {
               </div>
               <p className="text-sm font-semibold text-gray-900 mb-1">No completed jobs yet</p>
               <p className="text-xs text-gray-500 max-w-sm mx-auto">
-                Completed jobs and their earnings breakdown will show up here once you mark jobs as completed.
+                Jobs marked as completed in the Provider Dashboard will instantly appear here with their earnings.
               </p>
             </div>
           ) : (
             <div className="divide-y divide-gray-100">
               {completedRequests.map((req) => {
                 const meta = getCategoryMeta(req.serviceCategory);
-                const amount = Number(req.estimatedBudget) || Number(provider?.startingPrice) || 0;
+                const amount = Number(req.estimatedBudget) || Number(currentProvider?.startingPrice) || 0;
                 const dateStr = req.date || (req.createdAt?.toDate ? req.createdAt.toDate().toLocaleDateString() : 'N/A');
 
                 return (

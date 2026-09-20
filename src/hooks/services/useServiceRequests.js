@@ -1,13 +1,9 @@
 // src/hooks/services/useServiceRequests.js
-// Real-time listeners for service requests — sorted safely client-side.
+// Real-time listeners for service requests — completely stored and queried in Firebase Firestore.
+// No localStorage required.
 
 import { useEffect, useState } from 'react';
-import {
-  collection,
-  query,
-  where,
-  onSnapshot,
-} from 'firebase/firestore';
+import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '../../firebase/firebase';
 
 function sortByDateDesc(items) {
@@ -19,76 +15,75 @@ function sortByDateDesc(items) {
 }
 
 /**
- * Returns all service requests made BY the current customer.
- * @param {string|null} customerId
+ * Returns service requests from Firebase Firestore.
+ * Optionally filters by customerId, phone, or name.
+ * @param {string|null} filterTerm
  * @returns {{ requests: Array, loading: boolean, error: string|null }}
  */
-export function useMyServiceRequests(customerId) {
+export function useMyServiceRequests(filterTerm = null) {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState(null);
 
   useEffect(() => {
-    if (!customerId) {
-      setRequests([]);
-      setLoading(false);
-      return;
-    }
-
     setLoading(true);
-    const q = query(
-      collection(db, 'serviceRequests'),
-      where('customerId', '==', customerId)
-    );
+    const colRef = collection(db, 'serviceRequests');
 
     const unsub = onSnapshot(
-      q,
+      colRef,
       (snap) => {
-        const raw = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        let raw = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+        if (filterTerm && filterTerm.trim()) {
+          const term = filterTerm.trim().toLowerCase();
+          raw = raw.filter(
+            (r) =>
+              (r.customerPhone && r.customerPhone.includes(term)) ||
+              (r.customerId && r.customerId.toLowerCase() === term) ||
+              (r.customerName && r.customerName.toLowerCase().includes(term))
+          );
+        }
+
         setRequests(sortByDateDesc(raw));
         setLoading(false);
         setError(null);
       },
       (err) => {
-        console.error('Firestore customer requests error:', err);
+        console.error('Firestore serviceRequests error:', err);
         setError(err.message);
         setLoading(false);
       }
     );
 
     return unsub;
-  }, [customerId]);
+  }, [filterTerm]);
 
   return { requests, loading, error };
 }
 
 /**
- * Returns all service requests received BY the provider.
+ * Returns service requests received by a provider from Firebase Firestore.
  * @param {string|null} providerId
  * @returns {{ requests: Array, loading: boolean, error: string|null }}
  */
-export function useProviderRequests(providerId) {
+export function useProviderRequests(providerId = null) {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState(null);
 
   useEffect(() => {
-    if (!providerId) {
-      setRequests([]);
-      setLoading(false);
-      return;
-    }
-
     setLoading(true);
-    const q = query(
-      collection(db, 'serviceRequests'),
-      where('providerId', '==', providerId)
-    );
+    const colRef = collection(db, 'serviceRequests');
 
     const unsub = onSnapshot(
-      q,
+      colRef,
       (snap) => {
-        const raw = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        let raw = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+        if (providerId) {
+          raw = raw.filter((r) => r.providerId === providerId);
+        }
+
         setRequests(sortByDateDesc(raw));
         setLoading(false);
         setError(null);

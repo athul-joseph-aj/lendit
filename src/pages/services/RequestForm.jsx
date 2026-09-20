@@ -14,7 +14,6 @@ import { db } from '../../firebase/firebase';
 import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useProviderProfile } from '../../hooks/services/useProviderProfile';
-import { getActiveUserId, getCustomerInfo, saveCustomerInfo } from '../../utils/userSession';
 import { uploadImageSafely } from '../../utils/imageUpload';
 import { SERVICE_CATEGORIES } from '../Services';
 
@@ -27,11 +26,9 @@ export default function RequestForm() {
   const { provider, loading: providerLoading } = useProviderProfile(providerId);
   const fileRef = useRef(null);
 
-  const savedCustomer = getCustomerInfo(currentUser);
-
   const [form, setForm] = useState({
-    customerName:    savedCustomer.name || '',
-    customerPhone:   savedCustomer.phone || '',
+    customerName:    currentUser?.displayName || '',
+    customerPhone:   '',
     serviceCategory: '',
     description:     '',
     date:            new Date().toISOString().split('T')[0],
@@ -104,21 +101,20 @@ export default function RequestForm() {
     setError('');
 
     try {
-      const activeCustomerId = getActiveUserId(currentUser);
-      saveCustomerInfo(form.customerName.trim(), form.customerPhone.trim());
+      const customerDocId = 'cust_' + (form.customerPhone.replace(/\D/g, '') || Date.now().toString(36));
 
       // Safe image upload
       let imageUrl = '';
       if (imageFile) {
         imageUrl = await uploadImageSafely(
           imageFile,
-          `serviceRequests/${activeCustomerId}_${Date.now()}`
+          `serviceRequests/${customerDocId}_${Date.now()}`
         );
       }
 
       const primaryService = provider?.services?.[0] ?? 'other';
       const requestData = {
-        customerId:      activeCustomerId,
+        customerId:      customerDocId,
         customerName:    form.customerName.trim(),
         customerPhone:   form.customerPhone.trim(),
         providerId:      providerId,
@@ -154,7 +150,7 @@ export default function RequestForm() {
         <p className="text-gray-500 mb-8 max-w-sm">{t('requestSentDesc')}</p>
         <div className="flex flex-col sm:flex-row gap-3">
           <Link
-            to="/services/my-requests"
+            to={`/services/my-requests?phone=${encodeURIComponent(form.customerPhone.trim())}`}
             className="px-6 py-2.5 rounded-xl text-sm font-semibold text-white bg-[#4682B4] hover:bg-[#3b6f9a] transition-all shadow-sm"
           >
             {t('goToRequests')}
