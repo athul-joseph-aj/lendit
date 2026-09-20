@@ -1,13 +1,11 @@
 // src/components/Navbar.jsx
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, Package, Wrench, Search, User, PlusCircle, LayoutDashboard } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import { Menu, X, Package, Wrench, Search, PlusCircle, LayoutDashboard } from 'lucide-react';
 import { useTranslation } from '../hooks/useTranslation';
 import LanguageSelector from './LanguageSelector';
 
 export default function Navbar() {
-  const { currentUser } = useAuth();
   const { t } = useTranslation();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -17,15 +15,15 @@ export default function Navbar() {
     { name: t('rent'), path: '/rent' },
     { name: t('services'), path: '/services' },
     { name: t('listItem'), path: '/list-item' },
-    ...(currentUser ? [{ name: t('ownerDashboard'), path: '/owner' }] : []),
+    { name: t('ownerDashboard'), path: '/owner' },
   ];
 
   const mobileBottomLinks = [
     { name: t('home'), path: '/', icon: Search },
     { name: t('rent'), path: '/rent', icon: Package },
+    { name: t('listItem'), path: '/list-item', icon: PlusCircle },
     { name: t('services'), path: '/services', icon: Wrench },
-    { name: t('activity'), path: '/activity', icon: PlusCircle },
-    { name: t('profile'), path: '/profile', icon: User },
+    { name: t('ownerDashboard'), path: '/owner', icon: LayoutDashboard },
   ];
 
   const isActive = (path) => location.pathname === path;
@@ -62,27 +60,9 @@ export default function Navbar() {
           {/* Desktop Right Side Actions */}
           <div className="hidden md:flex items-center gap-4">
             <LanguageSelector />
-            
-            {currentUser ? (
-              <Link to="/profile" className="flex items-center gap-2 btn btn-ghost btn-sm rounded-full pl-2">
-                <div className="w-8 h-8 rounded-full bg-primary-100 text-primary flex items-center justify-center overflow-hidden">
-                  {currentUser.photoURL ? (
-                    <img src={currentUser.photoURL} alt="Profile" className="w-full h-full object-cover" />
-                  ) : (
-                    <User className="w-4 h-4" />
-                  )}
-                </div>
-                <span className="max-w-[100px] truncate">{currentUser.displayName || t('profile')}</span>
-              </Link>
-            ) : (
-              <div className="flex items-center gap-2">
-                <Link to="/login" className="btn btn-ghost btn-sm">{t('login')}</Link>
-                <Link to="/register" className="btn btn-primary btn-sm">{t('signUp')}</Link>
-              </div>
-            )}
           </div>
 
-          {/* Mobile Menu Toggle (Only visible on mobile top bar) */}
+          {/* Mobile Menu Toggle */}
           <div className="flex md:hidden items-center gap-2">
             <LanguageSelector />
             <button
@@ -95,35 +75,18 @@ export default function Navbar() {
         </div>
       </header>
 
-      {/* Mobile Slide-down Menu (Optional extra links) */}
+      {/* Mobile Slide-down Menu */}
       {mobileMenuOpen && (
         <div className="md:hidden fixed inset-0 z-30 bg-white pt-16 animate-fade-in">
           <div className="p-4 flex flex-col gap-4">
-            {!currentUser && (
-              <div className="flex flex-col gap-2 pb-4 border-b border-gray-100">
-                <Link to="/login" onClick={() => setMobileMenuOpen(false)} className="btn btn-secondary w-full">
-                  {t('login')}
-                </Link>
-                <Link to="/register" onClick={() => setMobileMenuOpen(false)} className="btn btn-primary w-full">
-                  {t('signUp')}
-                </Link>
-              </div>
-            )}
-            
             <Link to="/list-item" onClick={() => setMobileMenuOpen(false)} className="flex items-center p-3 text-gray-700 hover:bg-gray-50 rounded-lg">
               <PlusCircle className="w-5 h-5 mr-3 text-gray-400" />
               {t('listItem')}
             </Link>
-            <Link to="/activity" onClick={() => setMobileMenuOpen(false)} className="flex items-center p-3 text-gray-700 hover:bg-gray-50 rounded-lg">
-              <Package className="w-5 h-5 mr-3 text-gray-400" />
-              {t('activity')}
+            <Link to="/owner" onClick={() => setMobileMenuOpen(false)} className="flex items-center p-3 text-primary hover:bg-primary-50 rounded-lg font-medium">
+              <LayoutDashboard className="w-5 h-5 mr-3 text-primary" />
+              {t('ownerDashboard')}
             </Link>
-            {currentUser && (
-              <Link to="/owner" onClick={() => setMobileMenuOpen(false)} className="flex items-center p-3 text-primary hover:bg-primary-50 rounded-lg font-medium">
-                <LayoutDashboard className="w-5 h-5 mr-3 text-primary" />
-                {t('ownerDashboard')}
-              </Link>
-            )}
           </div>
         </div>
       )}
@@ -137,13 +100,10 @@ export default function Navbar() {
             const Icon = link.icon;
             const active = isActive(link.path);
             
-            // For profile, handle unauthenticated users
-            const path = (link.path === '/profile' && !currentUser) ? '/login' : link.path;
-            
             return (
               <Link
                 key={link.name}
-                to={path}
+                to={link.path}
                 className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${
                   active ? 'text-primary' : 'text-gray-500 hover:text-gray-900'
                 }`}

@@ -25,6 +25,7 @@ export default function OwnerDashboard() {
 
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (!currentUser) return;
@@ -63,6 +64,7 @@ export default function OwnerDashboard() {
         });
       } catch (err) {
         console.error('Dashboard fetch error:', err);
+        setError('Failed to load dashboard data. Please try refreshing.');
       } finally {
         setLoading(false);
       }
@@ -72,6 +74,16 @@ export default function OwnerDashboard() {
   }, [currentUser]);
 
   if (loading) return <Loading />;
+
+  if (error) {
+    return (
+      <div className="max-w-5xl mx-auto">
+        <div className="card p-8 text-center text-red-600">
+          <p className="font-medium">{error}</p>
+        </div>
+      </div>
+    );
+  }
 
   const CARDS = [
     {

@@ -36,6 +36,7 @@ export default function Earnings() {
   const { t } = useTranslation();
 
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [stats, setStats] = useState({
     totalEarnings: 0,
     completedCount: 0,
@@ -94,6 +95,7 @@ export default function Earnings() {
         setStats({ totalEarnings, completedCount, pendingCount, transactions });
       } catch (err) {
         console.error('Earnings fetch error:', err);
+        setError('Failed to load earnings. Please try refreshing.');
       } finally {
         setLoading(false);
       }
@@ -103,6 +105,16 @@ export default function Earnings() {
   }, [currentUser]);
 
   if (loading) return <Loading />;
+
+  if (error) {
+    return (
+      <div className="max-w-4xl mx-auto">
+        <div className="card p-8 text-center text-red-600">
+          <p className="font-medium">{error}</p>
+        </div>
+      </div>
+    );
+  }
 
   const STAT_CARDS = [
     {
@@ -158,7 +170,7 @@ export default function Earnings() {
         })}
       </div>
 
-      {/* Earnings trend placeholder */}
+      {/* Earnings summary */}
       <div className="card p-5 mb-6">
         <div className="flex items-center gap-2 mb-4">
           <TrendingUp className="w-5 h-5 text-primary" />

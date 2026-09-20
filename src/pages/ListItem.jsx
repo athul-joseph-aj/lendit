@@ -1,6 +1,6 @@
 // src/pages/ListItem.jsx
 // Route: /list-item  (Protected)
-// Full item listing form with Firebase Storage image upload and Firestore save.
+// Full item listing form with Cloudinary image upload and Firestore save.
 
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -8,15 +8,10 @@ import {
   addDoc,
   serverTimestamp,
 } from 'firebase/firestore';
-import {
-  ref as storageRef,
-  uploadBytes,
-  getDownloadURL,
-} from 'firebase/storage';
-import { db, storage } from '../firebase/firebase';
 import { itemsCol } from '../firebase/collections';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../hooks/useTranslation';
+import { uploadMultipleImages } from '../utils/cloudinary';
 import {
   Upload,
   X,
@@ -110,15 +105,11 @@ export default function ListItem() {
 
     setUploading(true);
     try {
-      // Upload images to Firebase Storage
-      const imageUrls = await Promise.all(
-        imageFiles.map(async (file) => {
-          const path = `items/${currentUser.uid}/${Date.now()}_${file.name}`;
-          const fileRef = storageRef(storage, path);
-          const snap = await uploadBytes(fileRef, file);
-          return getDownloadURL(snap.ref);
-        })
-      );
+      // Upload images to Cloudinary
+      let imageUrls = [];
+      if (imageFiles.length > 0) {
+        imageUrls = await uploadMultipleImages(imageFiles);
+      }
 
       // Save item document to Firestore
       await addDoc(itemsCol, {
