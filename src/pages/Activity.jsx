@@ -5,9 +5,11 @@ import {
   Package, Calendar, Clock, CheckCircle, XCircle,
   FileSearch, MapPin, AlertCircle
 } from 'lucide-react';
-import { getDocs, doc, getDoc } from 'firebase/firestore';
+import { getDocs, query, where, doc, getDoc } from 'firebase/firestore';
 import { bookingsCol, itemRequestsCol } from '../firebase/collections';
 import { db } from '../firebase/firebase';
+import { DEMO_MODE } from '../config/demo';
+import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../hooks/useTranslation';
 import Card from '../components/Card';
 import EmptyState from '../components/EmptyState';
@@ -16,21 +18,34 @@ import Button from '../components/Button';
 
 export default function Activity() {
   const { t } = useTranslation();
+  const { currentUser } = useAuth();
 
   const [activeTab, setActiveTab] = useState('rentals'); // 'rentals' | 'itemRequests'
   const [bookings, setBookings] = useState([]);
   const [itemRequests, setItemRequests] = useState([]);
   const [loadingBookings, setLoadingBookings] = useState(true);
   const [loadingRequests, setLoadingRequests] = useState(true);
+  const [bookingsError, setBookingsError] = useState(false);
+  const [requestsError, setRequestsError] = useState(false);
 
   // ── Fetch bookings ──────────────────────────────────────
   useEffect(() => {
     const fetchBookings = async () => {
       try {
         setLoadingBookings(true);
-        // Demo mode has no user identity, so show all bookings. Authentication
-        // can restore per-user filtering when the account flow is enabled.
-        const snapshot = await getDocs(bookingsCol);
+        setBookingsError(false);
+        const bookingsQuery = DEMO_MODE
+          ? bookingsCol
+          : currentUser
+            ? query(bookingsCol, where('renterId', '==', currentUser.uid))
+            : null;
+
+        if (!bookingsQuery) {
+          setBookings([]);
+          return;
+        }
+
+        const snapshot = await getDocs(bookingsQuery);
 
         const list = [];
         for (const bookingDoc of snapshot.docs) {
@@ -47,32 +62,45 @@ export default function Activity() {
         setBookings(list);
       } catch (err) {
         console.error('Error fetching bookings:', err);
+        setBookingsError(true);
       } finally {
         setLoadingBookings(false);
       }
     };
     fetchBookings();
-  }, []);
+  }, [currentUser]);
 
   // ── Fetch item requests ─────────────────────────────────
   useEffect(() => {
     const fetchItemRequests = async () => {
       try {
         setLoadingRequests(true);
-        // Demo mode has no user identity, so show all item requests.
-        const snapshot = await getDocs(itemRequestsCol);
+        setRequestsError(false);
+        const requestsQuery = DEMO_MODE
+          ? itemRequestsCol
+          : currentUser
+            ? query(itemRequestsCol, where('requesterId', '==', currentUser.uid))
+            : null;
+
+        if (!requestsQuery) {
+          setItemRequests([]);
+          return;
+        }
+
+        const snapshot = await getDocs(requestsQuery);
         const list = snapshot.docs
           .map((d) => ({ id: d.id, ...d.data() }))
           .sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
         setItemRequests(list);
       } catch (err) {
         console.error('Error fetching item requests:', err);
+        setRequestsError(true);
       } finally {
         setLoadingRequests(false);
       }
     };
     fetchItemRequests();
-  }, []);
+  }, [currentUser]);
 
   // ── Booking status config ────────────────────────────────
   const getBookingStatusConfig = (status) => {
@@ -80,9 +108,11 @@ export default function Activity() {
       case 'pending':   return { label: t('statusPending'),   color: 'badge-pending',                         icon: Clock };
       case 'accepted':  return { label: t('statusAccepted'),  color: 'bg-indigo-100 text-indigo-800',         icon: CheckCircle };
       case 'active':    return { label: t('statusActive'),    color: 'badge-active',                          icon: CheckCircle };
-      case 'completed': return { label: t('statusDone'),      color: 'badge-done',                            icon: CheckCircle };
+      case 'completed':
+      case 'done':      return { label: t('statusDone'),      color: 'badge-done',                            icon: CheckCircle };
       case 'rejected':  return { label: t('statusRejected'),  color: 'bg-red-100 text-red-800',               icon: XCircle };
-      case 'cancelled': return { label: t('statusCanceled'),  color: 'badge-canceled',                        icon: XCircle };
+      case 'cancelled':
+      case 'canceled':  return { label: t('statusCanceled'),  color: 'badge-canceled',                        icon: XCircle };
       default:          return { label: status,               color: 'bg-gray-100 text-gray-800',             icon: Package };
     }
   };
@@ -98,7 +128,7 @@ export default function Activity() {
   };
 
   const formatDate = (dateObj) => {
-    if (!dateObj) return 'N/A';
+    if (!dateObj) return t('notAvailable');
     const d = dateObj.toDate ? dateObj.toDate() : new Date(dateObj);
     return d.toLocaleDateString();
   };
@@ -170,7 +200,7 @@ export default function Activity() {
 
                   <div className="p-5 flex-1 flex flex-col">
                     <h3 className="font-semibold text-gray-900 mb-4 line-clamp-2">
-                      {booking.item?.name || 'Unknown Item'}
+                      {booking.item?.name || t('unknownItem')}
                     </h3>
 
                     <div className="flex flex-col gap-2 mt-auto text-sm text-gray-600">
@@ -178,10 +208,16 @@ export default function Activity() {
                         <Calendar className="w-4 h-4 mr-2 text-gray-400" />
                         <span>{formatDate(booking.startDate)} &mdash; {formatDate(booking.endDate)}</span>
                       </div>
-                      {booking.pickupOption && (
+                      {(booking.pickupOption || booking.preference) && (
                         <div className="flex items-center">
                           <Package className="w-4 h-4 mr-2 text-gray-400" />
-                          <span className="capitalize">{booking.pickupOption}</span>
+                          <span className="capitalize">{booking.pickupOption || booking.preference}</span>
+                        </div>
+                      )}
+                      {booking.item?.location && (
+                        <div className="flex items-center">
+                          <MapPin className="w-4 h-4 mr-2 text-gray-400" />
+                          <span>{booking.item.location}</span>
                         </div>
                       )}
                       <div className="flex items-center justify-between pt-4 mt-2 border-t border-gray-100">
@@ -199,7 +235,7 @@ export default function Activity() {
             <EmptyState
               icon={Package}
               titleKey="emptyState"
-              descriptionKey="activityPlaceholder"
+              descriptionKey={bookingsError ? 'firebaseError' : 'activityPlaceholder'}
               className="max-w-md w-full"
             />
             <Link to="/rent">
@@ -253,7 +289,7 @@ export default function Activity() {
                     )}
                     {req.budget && (
                       <div className="flex items-center pt-3 mt-1 border-t border-gray-100">
-                        <span className="text-gray-500 mr-2">Budget:</span>
+                        <span className="text-gray-500 mr-2">{t('budget')}:</span>
                         <span className="font-semibold text-gray-900">{req.budget}</span>
                       </div>
                     )}
@@ -269,7 +305,7 @@ export default function Activity() {
                 <FileSearch className="w-10 h-10 text-gray-400" />
               </div>
               <h2 className="text-xl font-bold text-gray-900 mb-2">{t('myItemRequests')}</h2>
-              <p className="text-gray-500 mb-5">{t('communityDesc')}</p>
+              <p className="text-gray-500 mb-5">{requestsError || bookingsError ? t('firebaseError') : t('communityDesc')}</p>
               <Link to="/rent">
                 <Button variant="primary">{t('requestAnItem')}</Button>
               </Link>

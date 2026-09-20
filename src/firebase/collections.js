@@ -74,7 +74,7 @@ export const getServiceRequestRef  = (requestId)  => doc(db, COLLECTIONS.SERVICE
  * @property {import('firebase/firestore').Timestamp} endDate
  * @property {number}   totalAmount
  * @property {number}   securityDeposit
- * @property {string}   status           - 'pending' | 'active' | 'done' | 'canceled'
+ * @property {string}   status           - 'pending' | 'accepted' | 'rejected' | 'active' | 'completed' | 'cancelled'
  * @property {string}   pickupOption     - 'pickup' | 'delivery'
  * @property {import('firebase/firestore').Timestamp} createdAt
  */

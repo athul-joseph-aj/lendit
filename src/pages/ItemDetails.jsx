@@ -2,8 +2,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getDoc, addDoc, serverTimestamp } from 'firebase/firestore';
-import { getItemRef, bookingsCol } from '../firebase/collections';
-import { DEMO_USER_ID } from '../config/demo';
+import { getItemRef, getUserRef, bookingsCol } from '../firebase/collections';
+import { DEMO_MODE, DEMO_USER_ID } from '../config/demo';
 import { useAuth } from '../context/AuthContext';
 import { MOCK_ITEMS } from './Rent';
 import { useTranslation } from '../hooks/useTranslation';
@@ -24,6 +24,8 @@ export default function ItemDetails() {
   const [bookingLoading, setBookingLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [ownerName, setOwnerName] = useState('');
+  const [selectedImage, setSelectedImage] = useState(0);
 
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -34,15 +36,31 @@ export default function ItemDetails() {
       try {
         const docSnap = await getDoc(getItemRef(itemId));
         if (docSnap.exists()) {
-          setItem({ id: docSnap.id, ...docSnap.data() });
+          const itemData = { id: docSnap.id, ...docSnap.data() };
+          setItem(itemData);
+          setSelectedImage(0);
+          setOwnerName(itemData.ownerId || t('owner'));
+
+          if (itemData.ownerId) {
+            try {
+              const ownerSnap = await getDoc(getUserRef(itemData.ownerId));
+              if (ownerSnap.exists()) {
+                const ownerData = ownerSnap.data();
+                setOwnerName(ownerData.name || ownerData.displayName || itemData.ownerId);
+              }
+            } catch {
+              // Owner profile data is optional for the customer view.
+            }
+          }
         } else {
           const demoIndex = Number(itemId?.replace('demo-item-', '')) - 1;
           const demoItem = Number.isInteger(demoIndex) ? MOCK_ITEMS[demoIndex] : null;
 
           if (demoItem) {
             setItem({ id: itemId, ...demoItem });
+            setOwnerName(demoItem.ownerId || t('owner'));
           } else {
-            setError('Item not found');
+            setError(t('itemNotFound'));
           }
         }
       } catch (err) {
@@ -52,15 +70,16 @@ export default function ItemDetails() {
 
         if (demoItem) {
           setItem({ id: itemId, ...demoItem });
+          setOwnerName(demoItem.ownerId || t('owner'));
         } else {
-          setError('Error loading item details');
+          setError(t('firebaseError'));
         }
       } finally {
         setLoading(false);
       }
     };
     fetchItem();
-  }, [itemId]);
+  }, [itemId, t]);
 
   // Calculate rental duration
   let diffDays = 0;
@@ -79,8 +98,13 @@ export default function ItemDetails() {
   const handleBook = async (e) => {
     e.preventDefault();
 
+    if (!currentUser && !DEMO_MODE) {
+      setError(t('authRequired'));
+      return;
+    }
+
     if (!startDate || !endDate) {
-      setError('Start date and end date are required');
+      setError(t('missingDates'));
       return;
     }
 
@@ -88,11 +112,11 @@ export default function ItemDetails() {
     const end = new Date(endDate);
     
     if (start > end) {
-      setError('End date cannot be before start date');
+      setError(t('invalidDateRange'));
       return;
     }
     if (diffDays <= 0) {
-      setError('Rental duration must be valid');
+      setError(t('invalidRentalDuration'));
       return;
     }
 
@@ -107,7 +131,7 @@ export default function ItemDetails() {
         startDate: start,
         endDate: end,
         durationDays: diffDays,
-        preference,
+        pickupOption: preference,
         rentalCost,
         totalAmount,
         securityDeposit: item.securityDeposit,
@@ -118,7 +142,7 @@ export default function ItemDetails() {
       setSuccess(true);
     } catch (err) {
       console.error("Error booking item:", err);
-      setError('Could not process booking request');
+      setError(t('requestError'));
     } finally {
       setBookingLoading(false);
     }
@@ -134,20 +158,37 @@ export default function ItemDetails() {
         
         {/* Left Column - Images & Details */}
         <div className="flex-1 space-y-8">
-          {/* Main Image */}
-          <div className="rounded-2xl overflow-hidden bg-gray-100 aspect-video md:aspect-[16/9] w-full relative">
-            {item.images && item.images.length > 0 ? (
-              <img src={item.images[0]} alt={item.name} className="w-full h-full object-cover" />
+          {/* Image gallery */}
+          <div className="space-y-3">
+            <div className="rounded-2xl overflow-hidden bg-gray-100 aspect-video md:aspect-[16/9] w-full relative">
+            {item.images?.length > 0 ? (
+              <img src={item.images[selectedImage] || item.images[0]} alt={item.name} className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-gray-400">
-                No Image
+                {t('noImage')}
               </div>
             )}
             {!item.availability && (
               <div className="absolute inset-0 bg-white/60 backdrop-blur-sm flex items-center justify-center">
                 <span className="bg-red-100 text-red-700 px-4 py-2 rounded-lg font-bold text-lg tracking-wide uppercase">
-                  Currently Unavailable
+                  {t('currentlyUnavailable')}
                 </span>
+              </div>
+            )}
+            </div>
+            {item.images?.length > 1 && (
+              <div className="flex gap-2 overflow-x-auto">
+                {item.images.map((image, index) => (
+                  <button
+                    key={image}
+                    type="button"
+                    onClick={() => setSelectedImage(index)}
+                    className={`w-16 h-16 rounded-lg overflow-hidden border-2 flex-shrink-0 ${selectedImage === index ? 'border-primary' : 'border-transparent'}`}
+                    aria-label={`${t('image')} ${index + 1}`}
+                  >
+                    <img src={image} alt="" className="w-full h-full object-cover" />
+                  </button>
+                ))}
               </div>
             )}
           </div>
@@ -173,7 +214,7 @@ export default function ItemDetails() {
             </div>
 
             <div className="mb-8 pb-8 border-b border-gray-200">
-              <h3 className="text-xl font-semibold text-gray-900 mb-4">Description</h3>
+              <h3 className="text-xl font-semibold text-gray-900 mb-4">{t('description')}</h3>
               <p className="text-gray-600 whitespace-pre-wrap leading-relaxed">
                 {item.description}
               </p>
@@ -184,8 +225,8 @@ export default function ItemDetails() {
                 <User className="w-6 h-6 text-gray-400" />
               </div>
               <div>
-                <p className="text-sm text-gray-500">Owned by</p>
-                <p className="font-semibold text-gray-900">Verified User</p>
+                <p className="text-sm text-gray-500">{t('ownedBy')}</p>
+                <p className="font-semibold text-gray-900">{ownerName || t('owner')}</p>
               </div>
             </div>
           </div>
@@ -278,7 +319,7 @@ export default function ItemDetails() {
                   className="w-full mt-4" 
                   size="lg"
                   isLoading={bookingLoading}
-                  disabled={!item.availability}
+                  disabled={!item.availability || (!currentUser && !DEMO_MODE)}
                 >
                   <Calendar className="w-5 h-5 mr-2" />
                   {t('requestToRent')}

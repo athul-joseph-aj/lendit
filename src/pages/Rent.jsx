@@ -1,7 +1,7 @@
 // src/pages/Rent.jsx
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Search, MapPin, PackageOpen, Star, Calendar, Package, CheckCircle2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Search, MapPin, PackageOpen, Calendar, Package, CheckCircle2 } from 'lucide-react';
 import { getDocs, query, addDoc, serverTimestamp } from 'firebase/firestore';
 import { itemsCol, bookingsCol, itemRequestsCol } from '../firebase/collections';
 import { DEMO_MODE, DEMO_USER_ID } from '../config/demo';
@@ -12,6 +12,7 @@ import Input from '../components/Input';
 import Button from '../components/Button';
 import Loading from '../components/Loading';
 import Modal from '../components/Modal';
+import RentalItemCard from '../components/RentalItemCard';
 
 // ─── MOCK DATA ────────────────────────────────────────────────────────────────
 export const MOCK_ITEMS = [
@@ -119,6 +120,7 @@ export const MOCK_ITEMS = [
 function RentalRequestModal({ isOpen, onClose, item }) {
   const { t } = useTranslation();
   const { currentUser } = useAuth();
+  const navigate = useNavigate();
 
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -151,11 +153,12 @@ function RentalRequestModal({ isOpen, onClose, item }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!startDate || !endDate) { setError('Please select start and end dates.'); return; }
+    if (!currentUser && !DEMO_MODE) { setError(t('authRequired')); return; }
+    if (!startDate || !endDate) { setError(t('missingDates')); return; }
     const s = new Date(startDate);
     const e2 = new Date(endDate);
-    if (e2 < s) { setError('End date cannot be before start date.'); return; }
-    if (diffDays <= 0) { setError('Please select a valid rental period.'); return; }
+    if (e2 < s) { setError(t('invalidDateRange')); return; }
+    if (diffDays <= 0) { setError(t('invalidRentalDuration')); return; }
 
     try {
       setLoading(true);
@@ -177,7 +180,7 @@ function RentalRequestModal({ isOpen, onClose, item }) {
       setSuccess(true);
     } catch (err) {
       console.error('Error creating booking:', err);
-      setError('Could not send request. Please try again.');
+      setError(t('requestError'));
     } finally {
       setLoading(false);
     }
@@ -318,8 +321,14 @@ function RequestItemModal({ isOpen, onClose }) {
   const today = new Date().toISOString().split('T')[0];
 
   const categories = [
-    'Electronics', 'Cameras', 'Laptops', 'Tools',
-    'Event Equipment', 'Vehicles', 'Household', 'Other',
+    { value: 'Electronics', label: t('electronicsCategory') },
+    { value: 'Cameras', label: t('camerasCategory') },
+    { value: 'Laptops', label: t('laptopsCategory') },
+    { value: 'Tools', label: t('toolsCategory') },
+    { value: 'Event Equipment', label: t('eventEquipmentCategory') },
+    { value: 'Vehicles', label: t('vehiclesCategory') },
+    { value: 'Household', label: t('householdCategory') },
+    { value: 'Other', label: t('otherCategory') },
   ];
 
   const handleClose = () => {
@@ -333,7 +342,7 @@ function RequestItemModal({ isOpen, onClose }) {
     e.preventDefault();
 
     if (!startDate || !endDate) {
-      setError('Start date and end date are required.');
+      setError(t('missingDates'));
       return;
     }
 
@@ -341,12 +350,12 @@ function RequestItemModal({ isOpen, onClose }) {
     const endObj = new Date(endDate);
     
     if (isNaN(startObj) || isNaN(endObj)) {
-      setError('Please enter valid dates.');
+      setError(t('invalidDateRange'));
       return;
     }
 
     if (endObj < startObj) {
-      setError('Please select a valid date range.');
+      setError(t('invalidDateRange'));
       return;
     }
 
@@ -368,7 +377,7 @@ function RequestItemModal({ isOpen, onClose }) {
       setSuccess(true);
     } catch (err) {
       console.error('Firestore error:', err);
-      setError('Could not submit request. Please try again.');
+      setError(t('requestError'));
     } finally {
       setLoading(false);
     }
@@ -396,31 +405,35 @@ function RequestItemModal({ isOpen, onClose }) {
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
             label={t('itemName')}
-            placeholder="e.g. Projector, Camera, Tent..."
+            placeholder={t('itemRequestPlaceholder')}
             required
             value={itemName}
             onChange={(e) => setItemName(e.target.value)}
           />
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Category</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('category')}</label>
             <select
               className="input w-full"
               required
               value={category}
               onChange={(e) => setCategory(e.target.value)}
             >
-              <option value="">Select a category</option>
-              {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+              <option value="">{t('selectCategory')}</option>
+              {categories.map((categoryOption) => (
+                <option key={categoryOption.value} value={categoryOption.value}>
+                  {categoryOption.label}
+                </option>
+              ))}
             </select>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Description</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('description')}</label>
             <textarea
               className="input w-full resize-none"
               rows={3}
-              placeholder="Describe what you need and any specific requirements..."
+              placeholder={t('descriptionPlaceholder')}
               required
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -429,7 +442,7 @@ function RequestItemModal({ isOpen, onClose }) {
 
           <Input
             label={t('preferredLocation')}
-            placeholder="e.g. Chengannur, Kochi..."
+            placeholder={t('locationPlaceholder')}
             required
             value={location}
             onChange={(e) => setLocation(e.target.value)}
@@ -457,7 +470,7 @@ function RequestItemModal({ isOpen, onClose }) {
 
           <Input
             label={t('budget')}
-            placeholder="e.g. ₹500/day"
+            placeholder={t('budgetPlaceholder')}
             value={budget}
             onChange={(e) => setBudget(e.target.value)}
           />
@@ -485,6 +498,8 @@ export default function Rent() {
   const [locationQuery, setLocationQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [availableOnly, setAvailableOnly] = useState(false);
+  const [minPrice, setMinPrice] = useState('');
+  const [maxPrice, setMaxPrice] = useState('');
   const [sortBy, setSortBy] = useState('rating');
 
   // Modals
@@ -492,13 +507,14 @@ export default function Rent() {
   const [itemRequestModalOpen, setItemRequestModalOpen] = useState(false);
 
   const categories = [
-    t('electronicsCategory'),
-    t('camerasCategory'),
-    t('laptopsCategory'),
-    t('toolsCategory'),
-    t('eventEquipmentCategory'),
-    t('vehiclesCategory'),
-    t('householdCategory'),
+    { value: 'Electronics', label: t('electronicsCategory') },
+    { value: 'Cameras', label: t('camerasCategory') },
+    { value: 'Laptops', label: t('laptopsCategory') },
+    { value: 'Tools', label: t('toolsCategory') },
+    { value: 'Event Equipment', label: t('eventEquipmentCategory') },
+    { value: 'Vehicles', label: t('vehiclesCategory') },
+    { value: 'Household', label: t('householdCategory') },
+    { value: 'Other', label: t('otherCategory') },
   ];
 
   const fetchItems = async () => {
@@ -545,27 +561,26 @@ export default function Rent() {
     }
   };
 
-  const handleRequestToRent = (e, item) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setRentalModalItem(item);
-  };
-
   const clearFilters = () => {
     setSearchQuery('');
     setLocationQuery('');
     setSelectedCategory('');
     setAvailableOnly(false);
+    setMinPrice('');
+    setMaxPrice('');
     setSortBy('rating');
   };
 
   const processedItems = items
     .filter((item) => {
-      const matchesSearch = item.name?.toLowerCase().includes(searchQuery.toLowerCase());
+      const searchableText = `${item.name || ''} ${item.category || ''} ${item.location || ''}`.toLowerCase();
+      const matchesSearch = searchableText.includes(searchQuery.toLowerCase());
       const matchesLocation = item.location?.toLowerCase().includes(locationQuery.toLowerCase());
       const matchesCategory = selectedCategory ? item.category === selectedCategory : true;
       const matchesAvailability = availableOnly ? item.availability === true : true;
-      return matchesSearch && matchesLocation && matchesCategory && matchesAvailability;
+      const matchesMinPrice = minPrice === '' || Number(item.price) >= Number(minPrice);
+      const matchesMaxPrice = maxPrice === '' || Number(item.price) <= Number(maxPrice);
+      return matchesSearch && matchesLocation && matchesCategory && matchesAvailability && matchesMinPrice && matchesMaxPrice;
     })
     .sort((a, b) => {
       if (sortBy === 'price_asc') return a.price - b.price;
@@ -574,7 +589,7 @@ export default function Rent() {
       return 0;
     });
 
-  const isFiltered = searchQuery || locationQuery || selectedCategory || availableOnly;
+  const isFiltered = searchQuery || locationQuery || selectedCategory || availableOnly || minPrice || maxPrice;
 
   return (
     <div className="container-main py-8 md:py-12 flex-1 flex flex-col">
@@ -582,13 +597,13 @@ export default function Rent() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <h1 className="text-2xl md:text-3xl font-bold text-gray-900">{t('exploreRentals')}</h1>
         <Button onClick={handleSeedData} variant="secondary" size="sm">
-          Seed Mock Data
+          {t('seedDemoData')}
         </Button>
       </div>
 
       {/* Search & Filters */}
       <Card className="mb-8" padding="p-4 md:p-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
           <Input
             placeholder={t('searchItems')}
             icon={Search}
@@ -601,6 +616,24 @@ export default function Rent() {
             value={locationQuery}
             onChange={(e) => setLocationQuery(e.target.value)}
           />
+          <div className="grid grid-cols-2 gap-2">
+            <Input
+              label={t('price')}
+              type="number"
+              min="0"
+              placeholder={t('minPrice')}
+              value={minPrice}
+              onChange={(e) => setMinPrice(e.target.value)}
+            />
+            <Input
+              label=""
+              type="number"
+              min="0"
+              placeholder={t('maxPrice')}
+              value={maxPrice}
+              onChange={(e) => setMaxPrice(e.target.value)}
+            />
+          </div>
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
@@ -622,15 +655,15 @@ export default function Rent() {
             >
               {t('allCategories')}
             </button>
-            {categories.map((cat, i) => (
+            {categories.map((categoryOption) => (
               <button
-                key={i}
-                onClick={() => setSelectedCategory(cat)}
+                key={categoryOption.value}
+                onClick={() => setSelectedCategory(categoryOption.value)}
                 className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-colors border ${
-                  selectedCategory === cat ? 'bg-primary text-white border-primary' : 'bg-white text-gray-700 border-gray-200 hover:border-primary/50'
+                  selectedCategory === categoryOption.value ? 'bg-primary text-white border-primary' : 'bg-white text-gray-700 border-gray-200 hover:border-primary/50'
                 }`}
               >
-                {cat}
+                {categoryOption.label}
               </button>
             ))}
           </div>
@@ -653,71 +686,11 @@ export default function Rent() {
       ) : processedItems.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {processedItems.map((item) => (
-            <Card key={item.id} hover padding="p-0" className="h-full flex flex-col overflow-hidden group">
-              {/* Image */}
-              <Link to={`/rent/${item.id}`} className="block h-48 w-full bg-gray-100 relative overflow-hidden">
-                {item.images?.length > 0 ? (
-                  <img
-                    src={item.images[0]}
-                    alt={item.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-gray-400">
-                    <PackageOpen className="w-12 h-12" />
-                  </div>
-                )}
-                {/* Rating badge */}
-                <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-md flex items-center text-xs font-semibold text-gray-900 shadow-sm">
-                  <Star className="w-3.5 h-3.5 text-amber-400 mr-1 fill-amber-400" />
-                  {item.rating}
-                </div>
-                {/* Unavailable overlay */}
-                {!item.availability && (
-                  <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] flex items-center justify-center">
-                    <span className="bg-red-600 text-white px-3 py-1 rounded-full text-xs font-bold tracking-wide uppercase shadow">
-                      {t('currentlyUnavailable')}
-                    </span>
-                  </div>
-                )}
-              </Link>
-
-              {/* Card body */}
-              <div className="p-4 flex flex-col flex-1">
-                <div className="text-xs text-primary font-semibold uppercase tracking-wider mb-1">
-                  {item.category}
-                </div>
-                <Link to={`/rent/${item.id}`} className="hover:text-primary transition-colors">
-                  <h3 className="font-semibold text-gray-900 leading-tight mb-2 line-clamp-2">{item.name}</h3>
-                </Link>
-                <div className="flex items-center text-sm text-gray-500 mt-auto mb-3">
-                  <MapPin className="w-4 h-4 mr-1 flex-shrink-0" />
-                  <span className="truncate">{item.location}</span>
-                </div>
-                <div className="flex items-baseline mb-4">
-                  <span className="text-lg font-bold text-gray-900">₹{item.price}</span>
-                  <span className="text-sm text-gray-500 ml-1">/ {item.priceUnit === 'day' ? t('perDay') : item.priceUnit}</span>
-                </div>
-
-                {/* Action buttons */}
-                <div className="pt-3 border-t border-gray-100 flex flex-col gap-2">
-                  <Link to={`/rent/${item.id}`}>
-                    <Button variant="secondary" size="sm" className="w-full">
-                      {t('viewDetails')}
-                    </Button>
-                  </Link>
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    className="w-full"
-                    disabled={!item.availability}
-                    onClick={(e) => item.availability && handleRequestToRent(e, item)}
-                  >
-                    {item.availability ? t('requestToRent') : t('currentlyUnavailable')}
-                  </Button>
-                </div>
-              </div>
-            </Card>
+            <RentalItemCard
+              key={item.id}
+              item={item}
+              categoryLabel={categories.find((categoryOption) => categoryOption.value === item.category)?.label}
+            />
           ))}
         </div>
       ) : (
@@ -740,7 +713,7 @@ export default function Rent() {
           {/* Divider */}
           <div className="w-full max-w-sm flex items-center gap-4">
             <div className="flex-1 h-px bg-gray-200" />
-            <span className="text-xs text-gray-400 font-medium uppercase tracking-wider">or</span>
+            <span className="text-xs text-gray-400 font-medium uppercase tracking-wider">{t('or')}</span>
             <div className="flex-1 h-px bg-gray-200" />
           </div>
 
