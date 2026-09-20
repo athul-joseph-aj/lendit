@@ -73,5 +73,19 @@
   "electricianService": "ഇലക്ട്രീഷ്യൻ",
   "plumberService": "പ്ലംബർ",
   "carpenterService": "ആശാരി",
-  "cleaningService": "ക്ലീനിംഗ്"
+  "cleaningService": "ക്ലീനിംഗ്",
+  "searchItems": "ഇനങ്ങൾ തിരയുക...",
+  "allCategories": "എല്ലാ വിഭാഗങ്ങളും",
+  "perDay": "ദിവസേന",
+  "requestToBook": "ബുക്ക് ചെയ്യാൻ അഭ്യർത്ഥിക്കുക",
+  "startDate": "തുടങ്ങുന്ന തീയതി",
+  "endDate": "അവസാനിക്കുന്ന തീയതി",
+  "totalAmount": "ആകെ തുക",
+  "securityDeposit": "സെക്യൂരിറ്റി ഡെപ്പോസിറ്റ്",
+  "bookingRequested": "ബുക്കിംഗ് അഭ്യർത്ഥിച്ചു!",
+  "myBookings": "എൻ്റെ ബുക്കിംഗുകൾ",
+  "statusPending": "തീരുമാനമാകാത്ത",
+  "statusActive": "സജീവമായ",
+  "statusDone": "പൂർത്തിയായി",
+  "statusCanceled": "റദ്ദാക്കി"
 }

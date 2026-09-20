@@ -73,5 +73,19 @@
   "electricianService": "इलेक्ट्रीशियन",
   "plumberService": "प्लंबर",
   "carpenterService": "बढ़ई",
-  "cleaningService": "सफाई"
+  "cleaningService": "सफाई",
+  "searchItems": "आइटम खोजें...",
+  "allCategories": "सभी श्रेणियां",
+  "perDay": "प्रति दिन",
+  "requestToBook": "बुक करने का अनुरोध करें",
+  "startDate": "आरंभ तिथि",
+  "endDate": "अंतिम तिथि",
+  "totalAmount": "कुल राशि",
+  "securityDeposit": "सुरक्षा जमा",
+  "bookingRequested": "बुकिंग का अनुरोध किया गया!",
+  "myBookings": "मेरी बुकिंग",
+  "statusPending": "लंबित",
+  "statusActive": "सक्रिय",
+  "statusDone": "पूरा हुआ",
+  "statusCanceled": "रद्द"
 }

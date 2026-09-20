@@ -73,5 +73,19 @@
   "electricianService": "ಎಲೆಕ್ಟ್ರೀಶಿಯನ್",
   "plumberService": "ಪ್ಲಂಬರ್",
   "carpenterService": "ಬಡಗಿ",
-  "cleaningService": "ಸ್ವಚ್ಛಗೊಳಿಸುವಿಕೆ"
+  "cleaningService": "ಸ್ವಚ್ಛಗೊಳಿಸುವಿಕೆ",
+  "searchItems": "ಐಟಂಗಳನ್ನು ಹುಡುಕಿ...",
+  "allCategories": "ಎಲ್ಲಾ ವರ್ಗಗಳು",
+  "perDay": "ದಿನಕ್ಕೆ",
+  "requestToBook": "ಬುಕ್ ಮಾಡಲು ವಿನಂತಿಸಿ",
+  "startDate": "ಪ್ರಾರಂಭ ದಿನಾಂಕ",
+  "endDate": "ಅಂತ್ಯ ದಿನಾಂಕ",
+  "totalAmount": "ಒಟ್ಟು ಮೊತ್ತ",
+  "securityDeposit": "ಭದ್ರತಾ ಠೇವಣಿ",
+  "bookingRequested": "ಬುಕಿಂಗ್ ವಿನಂತಿಸಲಾಗಿದೆ!",
+  "myBookings": "ನನ್ನ ಬುಕಿಂಗ್‌ಗಳು",
+  "statusPending": "ಬಾಕಿ ಇದೆ",
+  "statusActive": "ಸಕ್ರಿಯ",
+  "statusDone": "ಮುಗಿದಿದೆ",
+  "statusCanceled": "ರದ್ದುಗೊಂಡಿದೆ"
 }

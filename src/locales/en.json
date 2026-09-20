@@ -84,5 +84,19 @@
   "electricianService": "Electrician",
   "plumberService": "Plumber",
   "carpenterService": "Carpenter",
-  "cleaningService": "Cleaning"
+  "cleaningService": "Cleaning",
+  "searchItems": "Search items...",
+  "allCategories": "All Categories",
+  "perDay": "per day",
+  "requestToBook": "Request to Book",
+  "startDate": "Start Date",
+  "endDate": "End Date",
+  "totalAmount": "Total Amount",
+  "securityDeposit": "Security Deposit",
+  "bookingRequested": "Booking Requested!",
+  "myBookings": "My Bookings",
+  "statusPending": "Pending",
+  "statusActive": "Active",
+  "statusDone": "Done",
+  "statusCanceled": "Canceled"
 }
