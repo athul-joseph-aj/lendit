@@ -13,6 +13,7 @@ import {
   getDoc,
 } from 'firebase/firestore';
 import { db } from '../../firebase/firebase';
+import { DEMO_MODE } from '../../config/demo';
 import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from '../../hooks/useTranslation';
 import {
@@ -50,18 +51,21 @@ export default function RentalRequests() {
       id: bookingId,
       ...data,
       renterName: renterSnap?.exists() ? renterSnap.data().name || renterSnap.data().email : data.renterId,
-      itemName:   itemSnap?.exists()   ? itemSnap.data().name : data.itemId,
+      itemName:   itemSnap?.exists()   ? itemSnap.data().name : data.itemName || data.itemId,
+      itemLocation: itemSnap?.exists() ? itemSnap.data().location : data.itemLocation,
     };
   };
 
   // ── Real-time listener for pending bookings ──────────────
   useEffect(() => {
     if (!currentUser) return;
-    const q = query(
-      collection(db, 'bookings'),
-      where('ownerId', '==', currentUser.uid),
-      where('status', '==', 'pending')
-    );
+    const q = DEMO_MODE
+      ? query(collection(db, 'bookings'), where('status', '==', 'pending'))
+      : query(
+        collection(db, 'bookings'),
+        where('ownerId', '==', currentUser.uid),
+        where('status', '==', 'pending')
+      );
     const unsub = onSnapshot(q, async (snap) => {
       const enriched = await Promise.all(
         snap.docs.map((d) => enrichBooking(d.id, d.data()))
@@ -139,6 +143,9 @@ export default function RentalRequests() {
                   <div className="min-w-0">
                     <p className="text-xs text-gray-400">Item</p>
                     <p className="text-sm font-semibold text-gray-900 truncate">{req.itemName}</p>
+                    {req.itemLocation && (
+                      <p className="text-xs text-gray-400 truncate">{req.itemLocation}</p>
+                    )}
                   </div>
                 </div>
 

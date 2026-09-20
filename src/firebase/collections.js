@@ -13,6 +13,7 @@ export const COLLECTIONS = {
   USERS:             'users',
   ITEMS:             'items',
   BOOKINGS:          'bookings',
+  ITEM_REQUESTS:     'itemRequests',
   SERVICE_PROVIDERS: 'serviceProviders',
   SERVICE_REQUESTS:  'serviceRequests',
 };
@@ -21,6 +22,7 @@ export const COLLECTIONS = {
 export const usersCol            = collection(db, COLLECTIONS.USERS);
 export const itemsCol            = collection(db, COLLECTIONS.ITEMS);
 export const bookingsCol         = collection(db, COLLECTIONS.BOOKINGS);
+export const itemRequestsCol     = collection(db, COLLECTIONS.ITEM_REQUESTS);
 export const serviceProvidersCol = collection(db, COLLECTIONS.SERVICE_PROVIDERS);
 export const serviceRequestsCol  = collection(db, COLLECTIONS.SERVICE_REQUESTS);
 
@@ -28,6 +30,7 @@ export const serviceRequestsCol  = collection(db, COLLECTIONS.SERVICE_REQUESTS);
 export const getUserRef            = (userId)     => doc(db, COLLECTIONS.USERS,             userId);
 export const getItemRef            = (itemId)     => doc(db, COLLECTIONS.ITEMS,             itemId);
 export const getBookingRef         = (bookingId)  => doc(db, COLLECTIONS.BOOKINGS,          bookingId);
+export const getItemRequestRef     = (requestId)  => doc(db, COLLECTIONS.ITEM_REQUESTS,     requestId);
 export const getProviderRef        = (providerId) => doc(db, COLLECTIONS.SERVICE_PROVIDERS, providerId);
 export const getServiceRequestRef  = (requestId)  => doc(db, COLLECTIONS.SERVICE_REQUESTS,  requestId);
 
