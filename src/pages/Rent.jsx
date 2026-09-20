@@ -17,7 +17,7 @@ import RentalItemCard from '../components/RentalItemCard';
 // ─── MOCK DATA ────────────────────────────────────────────────────────────────
 export const MOCK_ITEMS = [
   {
-    ownerId: 'mock_owner_1',
+    ownerId: 'owner-main',
     name: 'Canon EOS 90D DSLR Camera',
     category: 'Cameras',
     description: 'Professional DSLR camera with 32.5MP sensor. Includes 18-55mm and 55-250mm lenses, 2 batteries, charger, and 128GB SD card. Perfect for events, portraits and wildlife.',
@@ -31,7 +31,7 @@ export const MOCK_ITEMS = [
     createdAt: new Date(),
   },
   {
-    ownerId: 'mock_owner_2',
+    ownerId: 'owner-main',
     name: 'Dell XPS 15 Laptop',
     category: 'Laptops',
     description: 'High-performance Dell XPS 15 with Intel Core i7, 16GB RAM, 512GB SSD, and NVIDIA GeForce GTX 1650. Ideal for design work, presentations, and coding.',
@@ -45,7 +45,7 @@ export const MOCK_ITEMS = [
     createdAt: new Date(),
   },
   {
-    ownerId: 'mock_owner_3',
+    ownerId: 'owner-main',
     name: 'Epson Full HD Projector',
     category: 'Event Equipment',
     description: '4000-lumen Full HD projector with HDMI, USB, and VGA inputs. Perfect for college events, presentations, movie nights, and weddings.',
@@ -59,7 +59,7 @@ export const MOCK_ITEMS = [
     createdAt: new Date(),
   },
   {
-    ownerId: 'mock_owner_4',
+    ownerId: 'owner-main',
     name: 'Bosch Professional Power Drill',
     category: 'Tools',
     description: 'Heavy-duty 20V cordless impact drill for concrete, wood, and metal. Includes a full set of 25 drill bits, two batteries, and a fast charger.',
@@ -73,7 +73,7 @@ export const MOCK_ITEMS = [
     createdAt: new Date(),
   },
   {
-    ownerId: 'mock_owner_5',
+    ownerId: 'owner-main',
     name: 'Coleman 6-Person Camping Tent',
     category: 'Household',
     description: 'Spacious 6-person dome tent with weather-resistant rainfly and ground cloth. Easy 20-minute setup. Great for weekend treks and outdoor events.',
@@ -87,7 +87,7 @@ export const MOCK_ITEMS = [
     createdAt: new Date(),
   },
   {
-    ownerId: 'mock_owner_6',
+    ownerId: 'owner-main',
     name: 'JBL PartyBox 310 Speaker',
     category: 'Event Equipment',
     description: 'Powerful 240W RMS portable speaker with dynamic light show, splash-proof design, and 18-hour playtime. Turn any space into a party.',
@@ -101,7 +101,7 @@ export const MOCK_ITEMS = [
     createdAt: new Date(),
   },
   {
-    ownerId: 'mock_owner_7',
+    ownerId: 'owner-main',
     name: 'Swift Dzire — Self Drive Car',
     category: 'Vehicles',
     description: 'Well-maintained 2022 Maruti Swift Dzire with AC, Bluetooth, and GPS. Petrol, clean interior. Fuel not included. Valid driving licence required.',
@@ -165,6 +165,8 @@ function RentalRequestModal({ isOpen, onClose, item }) {
       setError('');
       await addDoc(bookingsCol, {
         itemId: item.id,
+        itemName: item.name,
+        itemLocation: item.location || '',
         renterId: currentUser?.uid || DEMO_USER_ID,
         ownerId: item.ownerId,
         startDate: s,

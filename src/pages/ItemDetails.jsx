@@ -126,6 +126,8 @@ export default function ItemDetails() {
       
       await addDoc(bookingsCol, {
         itemId: item.id,
+        itemName: item.name,
+        itemLocation: item.location || '',
         renterId: currentUser?.uid || DEMO_USER_ID,
         ownerId: item.ownerId,
         startDate: start,
