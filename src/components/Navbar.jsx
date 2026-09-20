@@ -1,7 +1,7 @@
 // src/components/Navbar.jsx
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, Package, Wrench, Search, User, PlusCircle } from 'lucide-react';
+import { Menu, X, Package, Wrench, Search, User, PlusCircle, LayoutDashboard } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../hooks/useTranslation';
 import LanguageSelector from './LanguageSelector';
@@ -17,6 +17,7 @@ export default function Navbar() {
     { name: t('rent'), path: '/rent' },
     { name: t('services'), path: '/services' },
     { name: t('listItem'), path: '/list-item' },
+    ...(currentUser ? [{ name: t('ownerDashboard'), path: '/owner' }] : []),
   ];
 
   const mobileBottomLinks = [
@@ -117,12 +118,20 @@ export default function Navbar() {
               <Package className="w-5 h-5 mr-3 text-gray-400" />
               {t('activity')}
             </Link>
+            {currentUser && (
+              <Link to="/owner" onClick={() => setMobileMenuOpen(false)} className="flex items-center p-3 text-primary hover:bg-primary-50 rounded-lg font-medium">
+                <LayoutDashboard className="w-5 h-5 mr-3 text-primary" />
+                {t('ownerDashboard')}
+              </Link>
+            )}
           </div>
         </div>
       )}
 
-      {/* Mobile Bottom Navigation Bar */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 pb-safe">
+      {/* Mobile Bottom Navigation Bar — hidden on owner pages which have their own tab bar */}
+      <div className={`md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 pb-safe ${
+        location.pathname.startsWith('/owner') ? 'hidden' : ''
+      }`}>
         <div className="flex items-center justify-around h-16 px-2">
           {mobileBottomLinks.map((link) => {
             const Icon = link.icon;
