@@ -1,11 +1,9 @@
 // src/firebase/firebase.js
 // Firebase is initialized here using environment variables.
-// Copy .env.example → .env and fill in your Firebase project credentials.
+// Auth is disabled — only Firestore is used.
 
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey:            import.meta.env.VITE_FIREBASE_API_KEY,
@@ -19,9 +17,7 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// Firebase services — import these wherever you need them
-export const auth    = getAuth(app);
-export const db      = getFirestore(app);
-export const storage = getStorage(app);
+// Firebase services
+export const db = getFirestore(app);
 
 export default app;
