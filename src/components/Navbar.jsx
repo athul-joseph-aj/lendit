@@ -1,7 +1,7 @@
 // src/components/Navbar.jsx
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, Package, Wrench, Search, PlusCircle, LayoutDashboard } from 'lucide-react';
+import { Menu, X, Package, Wrench, Search, PlusCircle, LayoutDashboard, ClipboardList } from 'lucide-react';
 import { useTranslation } from '../hooks/useTranslation';
 import LanguageSelector from './LanguageSelector';
 
@@ -13,6 +13,7 @@ export default function Navbar() {
   const desktopLinks = [
     { name: t('home'), path: '/' },
     { name: t('rent'), path: '/rent' },
+    { name: t('activity'), path: '/activity' },
     { name: t('services'), path: '/services' },
     { name: t('listItem'), path: '/list-item' },
     { name: t('ownerDashboard'), path: '/owner' },
@@ -21,6 +22,7 @@ export default function Navbar() {
   const mobileBottomLinks = [
     { name: t('home'), path: '/', icon: Search },
     { name: t('rent'), path: '/rent', icon: Package },
+    { name: t('activity'), path: '/activity', icon: ClipboardList },
     { name: t('listItem'), path: '/list-item', icon: PlusCircle },
     { name: t('services'), path: '/services', icon: Wrench },
     { name: t('ownerDashboard'), path: '/owner', icon: LayoutDashboard },
