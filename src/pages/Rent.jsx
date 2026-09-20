@@ -1,7 +1,7 @@
 // src/pages/Rent.jsx
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, MapPin, PackageOpen, Star } from 'lucide-react';
+import { Search, MapPin, PackageOpen, Star, Filter } from 'lucide-react';
 import { getDocs, query, where, addDoc } from 'firebase/firestore';
 import { itemsCol } from '../firebase/collections';
 import { useTranslation } from '../hooks/useTranslation';
@@ -61,8 +61,13 @@ export default function Rent() {
   const { t } = useTranslation();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // Filters
   const [searchQuery, setSearchQuery] = useState('');
+  const [locationQuery, setLocationQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
+  const [availableOnly, setAvailableOnly] = useState(false);
+  const [sortBy, setSortBy] = useState('rating'); // 'price_asc', 'price_desc', 'rating'
 
   const categories = [
     t('electronicsCategory'),
@@ -77,7 +82,8 @@ export default function Rent() {
   const fetchItems = async () => {
     try {
       setLoading(true);
-      const q = query(itemsCol, where('availability', '==', true));
+      // We fetch all items to allow client-side sorting and filtering for the MVP
+      const q = query(itemsCol);
       const snapshot = await getDocs(q);
       
       const fetchedItems = snapshot.docs.map(doc => ({
@@ -109,12 +115,22 @@ export default function Rent() {
     }
   };
 
-  const filteredItems = items.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          item.location.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory ? item.category === selectedCategory : true;
-    return matchesSearch && matchesCategory;
-  });
+  // Filter and Sort Logic
+  const processedItems = items
+    .filter(item => {
+      const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesLocation = item.location.toLowerCase().includes(locationQuery.toLowerCase());
+      const matchesCategory = selectedCategory ? item.category === selectedCategory : true;
+      const matchesAvailability = availableOnly ? item.availability === true : true;
+      
+      return matchesSearch && matchesLocation && matchesCategory && matchesAvailability;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'price_asc') return a.price - b.price;
+      if (sortBy === 'price_desc') return b.price - a.price;
+      if (sortBy === 'rating') return b.rating - a.rating;
+      return 0;
+    });
 
   return (
     <div className="container-main py-8 md:py-12 flex-1 flex flex-col">
@@ -132,44 +148,74 @@ export default function Rent() {
       </div>
       
       {/* Search & Filters */}
-      <div className="flex flex-col md:flex-row gap-4 mb-8">
-        <div className="flex-1 max-w-md">
+      <Card className="mb-8" padding="p-4 md:p-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           <Input 
             placeholder={t('searchItems')} 
             icon={Search} 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
+          <Input 
+            placeholder={t('locationFilter')} 
+            icon={MapPin} 
+            value={locationQuery}
+            onChange={(e) => setLocationQuery(e.target.value)}
+          />
+          <div className="flex items-center gap-4">
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="input flex-1"
+            >
+              <option value="rating">{t('highestRated')}</option>
+              <option value="price_asc">{t('priceLowHigh')}</option>
+              <option value="price_desc">{t('priceHighLow')}</option>
+            </select>
+          </div>
         </div>
-        <div className="flex overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 md:pb-0 hide-scrollbar gap-2">
-          <button 
-            onClick={() => setSelectedCategory('')}
-            className={`whitespace-nowrap px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-              selectedCategory === '' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            {t('allCategories')}
-          </button>
-          {categories.map((cat, i) => (
+        
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 md:pb-0 hide-scrollbar gap-2 flex-1">
             <button 
-              key={i}
-              onClick={() => setSelectedCategory(cat)}
-              className={`whitespace-nowrap px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                selectedCategory === cat ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              onClick={() => setSelectedCategory('')}
+              className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-colors border ${
+                selectedCategory === '' ? 'bg-primary text-white border-primary' : 'bg-white text-gray-700 border-gray-200 hover:border-primary/50'
               }`}
             >
-              {cat}
+              {t('allCategories')}
             </button>
-          ))}
+            {categories.map((cat, i) => (
+              <button 
+                key={i}
+                onClick={() => setSelectedCategory(cat)}
+                className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-colors border ${
+                  selectedCategory === cat ? 'bg-primary text-white border-primary' : 'bg-white text-gray-700 border-gray-200 hover:border-primary/50'
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+
+          <label className="flex items-center gap-2 cursor-pointer whitespace-nowrap">
+            <input 
+              type="checkbox" 
+              checked={availableOnly}
+              onChange={(e) => setAvailableOnly(e.target.checked)}
+              className="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary"
+            />
+            <span className="text-sm font-medium text-gray-700">{t('availableOnly')}</span>
+          </label>
         </div>
-      </div>
+      </Card>
 
       {/* Grid */}
       {loading ? (
         <Loading />
-      ) : filteredItems.length > 0 ? (
+      ) : processedItems.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {filteredItems.map(item => (
+          {processedItems.map(item => (
             <Link key={item.id} to={`/rent/${item.id}`} className="group">
               <Card hover padding="p-0" className="h-full flex flex-col overflow-hidden">
                 <div className="h-48 w-full bg-gray-100 relative overflow-hidden">
@@ -191,8 +237,15 @@ export default function Rent() {
                 </div>
                 
                 <div className="p-4 flex flex-col flex-1">
-                  <div className="text-xs text-primary font-semibold mb-1 uppercase tracking-wider">
-                    {item.category}
+                  <div className="flex justify-between items-start mb-1">
+                    <div className="text-xs text-primary font-semibold uppercase tracking-wider">
+                      {item.category}
+                    </div>
+                    {!item.availability && (
+                      <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-semibold">
+                        UNAVAILABLE
+                      </span>
+                    )}
                   </div>
                   <h3 className="font-semibold text-gray-900 leading-tight mb-2 line-clamp-2">
                     {item.name}
@@ -202,7 +255,7 @@ export default function Rent() {
                     <span className="truncate">{item.location}</span>
                   </div>
                   <div className="pt-3 border-t border-gray-100 flex items-baseline">
-                    <span className="text-lg font-bold text-gray-900">${item.price}</span>
+                    <span className="text-lg font-bold text-gray-900">₹{item.price}</span>
                     <span className="text-sm text-gray-500 ml-1">/ {item.priceUnit === 'day' ? t('perDay') : item.priceUnit}</span>
                   </div>
                 </div>

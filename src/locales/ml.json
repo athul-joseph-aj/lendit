@@ -87,5 +87,20 @@
   "statusPending": "തീരുമാനമാകാത്ത",
   "statusActive": "സജീവമായ",
   "statusDone": "പൂർത്തിയായി",
-  "statusCanceled": "റദ്ദാക്കി"
+  "statusCanceled": "റദ്ദാക്കി",
+  "sort": "ക്രമീകരിക്കുക",
+  "priceLowHigh": "വില: കുറഞ്ഞത് മുതൽ കൂടിയത് വരെ",
+  "priceHighLow": "വില: കൂടിയത് മുതൽ കുറഞ്ഞത് വരെ",
+  "highestRated": "മികച്ച റേറ്റിംഗ്",
+  "locationFilter": "സ്ഥലം",
+  "availableOnly": "ലഭ്യമായവ മാത്രം",
+  "rentalDuration": "വാടക കാലാവധി",
+  "days": "ദിവസങ്ങൾ",
+  "pickupPreference": "ശേഖരിക്കുക/ഡെലിവറി",
+  "pickup": "ശേഖരിക്കുക",
+  "delivery": "ഡെലിവറി",
+  "rentalCost": "വാടക തുക",
+  "total": "ആകെ തുക",
+  "statusAccepted": "സ്വീകരിച്ചു",
+  "statusRejected": "നിരസിച്ചു"
 }

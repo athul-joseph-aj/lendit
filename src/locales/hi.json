@@ -87,5 +87,20 @@
   "statusPending": "लंबित",
   "statusActive": "सक्रिय",
   "statusDone": "पूरा हुआ",
-  "statusCanceled": "रद्द"
+  "statusCanceled": "रद्द",
+  "sort": "क्रमबद्ध करें",
+  "priceLowHigh": "कीमत: कम से ज्यादा",
+  "priceHighLow": "कीमत: ज्यादा से कम",
+  "highestRated": "उच्चतम रेटेड",
+  "locationFilter": "स्थान",
+  "availableOnly": "केवल उपलब्ध",
+  "rentalDuration": "किराये की अवधि",
+  "days": "दिन",
+  "pickupPreference": "पिकअप/डिलीवरी प्राथमिकता",
+  "pickup": "पिकअप",
+  "delivery": "डिलीवरी",
+  "rentalCost": "किराया लागत",
+  "total": "कुल",
+  "statusAccepted": "स्वीकृत",
+  "statusRejected": "अस्वीकृत"
 }

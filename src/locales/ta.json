@@ -87,5 +87,20 @@
   "statusPending": "நிலுவையில்",
   "statusActive": "செயலில்",
   "statusDone": "முடிந்தது",
-  "statusCanceled": "ரத்து செய்யப்பட்டது"
+  "statusCanceled": "ரத்து செய்யப்பட்டது",
+  "sort": "வரிசைப்படுத்து",
+  "priceLowHigh": "விலை: குறைவு முதல் அதிகம்",
+  "priceHighLow": "விலை: அதிகம் முதல் குறைவு",
+  "highestRated": "சிறந்த மதிப்பீடு",
+  "locationFilter": "இடம்",
+  "availableOnly": "கிடைப்பவை மட்டும்",
+  "rentalDuration": "வாடகை காலம்",
+  "days": "நாட்கள்",
+  "pickupPreference": "எடுத்துக்கொள்ளுதல்/டெலிவரி",
+  "pickup": "எடுத்துக்கொள்ளுதல்",
+  "delivery": "டெலிவரி",
+  "rentalCost": "வாடகை செலவு",
+  "total": "மொத்தம்",
+  "statusAccepted": "ஏற்கப்பட்டது",
+  "statusRejected": "நிராகரிக்கப்பட்டது"
 }

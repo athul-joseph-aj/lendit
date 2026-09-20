@@ -87,5 +87,20 @@
   "statusPending": "ಬಾಕಿ ಇದೆ",
   "statusActive": "ಸಕ್ರಿಯ",
   "statusDone": "ಮುಗಿದಿದೆ",
-  "statusCanceled": "ರದ್ದುಗೊಂಡಿದೆ"
+  "statusCanceled": "ರದ್ದುಗೊಂಡಿದೆ",
+  "sort": "ವಿಂಗಡಿಸಿ",
+  "priceLowHigh": "ಬೆಲೆ: ಕಡಿಮೆ ಯಿಂದ ಹೆಚ್ಚು",
+  "priceHighLow": "ಬೆಲೆ: ಹೆಚ್ಚು ಯಿಂದ ಕಡಿಮೆ",
+  "highestRated": "ಅತ್ಯುನ್ನತ ರೇಟಿಂಗ್",
+  "locationFilter": "ಸ್ಥಳ",
+  "availableOnly": "ಲಭ್ಯವಿರುವವು ಮಾತ್ರ",
+  "rentalDuration": "ಬಾಡಿಗೆ ಅವಧಿ",
+  "days": "ದಿನಗಳು",
+  "pickupPreference": "ಪಿಕಪ್/ಡೆಲಿವರಿ ಆಯ್ಕೆ",
+  "pickup": "ಪಿಕಪ್",
+  "delivery": "ಡೆಲಿವರಿ",
+  "rentalCost": "ಬಾಡಿಗೆ ವೆಚ್ಚ",
+  "total": "ಒಟ್ಟು",
+  "statusAccepted": "ಸ್ವೀಕರಿಸಲಾಗಿದೆ",
+  "statusRejected": "ತಿರಸ್ಕರಿಸಲಾಗಿದೆ"
 }

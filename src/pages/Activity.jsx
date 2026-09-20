@@ -63,11 +63,15 @@ export default function Activity() {
     switch (status) {
       case 'pending':
         return { label: t('statusPending'), color: 'badge-pending', icon: Clock };
+      case 'accepted':
+        return { label: t('statusAccepted'), color: 'bg-indigo-100 text-indigo-800', icon: CheckCircle };
       case 'active':
         return { label: t('statusActive'), color: 'badge-active', icon: CheckCircle };
-      case 'done':
+      case 'completed':
         return { label: t('statusDone'), color: 'badge-done', icon: CheckCircle };
-      case 'canceled':
+      case 'rejected':
+        return { label: t('statusRejected'), color: 'bg-red-100 text-red-800', icon: XCircle };
+      case 'cancelled':
         return { label: t('statusCanceled'), color: 'badge-canceled', icon: XCircle };
       default:
         return { label: status, color: 'bg-gray-100 text-gray-800', icon: Package };
@@ -129,7 +133,7 @@ export default function Activity() {
                     </div>
                     <div className="flex items-center justify-between pt-4 mt-2 border-t border-gray-100">
                       <span className="text-gray-500">{t('totalAmount')}</span>
-                      <span className="font-bold text-gray-900">${booking.totalAmount}</span>
+                      <span className="font-bold text-gray-900">₹{booking.totalAmount}</span>
                     </div>
                   </div>
                 </div>

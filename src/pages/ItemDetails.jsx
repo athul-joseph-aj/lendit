@@ -5,7 +5,7 @@ import { getDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { getItemRef, bookingsCol } from '../firebase/collections';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../hooks/useTranslation';
-import { MapPin, Star, Calendar, ShieldCheck, User } from 'lucide-react';
+import { MapPin, Star, Calendar, ShieldCheck, User, Truck } from 'lucide-react';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import Loading from '../components/Loading';
@@ -25,6 +25,7 @@ export default function ItemDetails() {
 
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [preference, setPreference] = useState('pickup'); // 'pickup' or 'delivery'
 
   useEffect(() => {
     const fetchItem = async () => {
@@ -45,6 +46,20 @@ export default function ItemDetails() {
     fetchItem();
   }, [itemId]);
 
+  // Calculate rental duration
+  let diffDays = 0;
+  if (startDate && endDate) {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    if (end >= start) {
+      const diffTime = Math.abs(end - start);
+      diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1; // Same day = 1 day
+    }
+  }
+
+  const rentalCost = item ? diffDays * item.price : 0;
+  const totalAmount = item ? rentalCost + item.securityDeposit : 0;
+
   const handleBook = async (e) => {
     e.preventDefault();
     if (!currentUser) {
@@ -52,20 +67,22 @@ export default function ItemDetails() {
       return;
     }
 
-    if (!startDate || !endDate) return;
+    if (!startDate || !endDate) {
+      setError('Start date and end date are required');
+      return;
+    }
 
     const start = new Date(startDate);
     const end = new Date(endDate);
     
     if (start > end) {
-      setError('End date must be after start date');
+      setError('End date cannot be before start date');
       return;
     }
-
-    // Rough calculation of days
-    const diffTime = Math.abs(end - start);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1; // At least 1 day
-    const totalAmount = (diffDays * item.price) + item.securityDeposit;
+    if (diffDays <= 0) {
+      setError('Rental duration must be valid');
+      return;
+    }
 
     try {
       setBookingLoading(true);
@@ -77,6 +94,9 @@ export default function ItemDetails() {
         ownerId: item.ownerId,
         startDate: start,
         endDate: end,
+        durationDays: diffDays,
+        preference,
+        rentalCost,
         totalAmount,
         securityDeposit: item.securityDeposit,
         status: 'pending',
@@ -104,12 +124,19 @@ export default function ItemDetails() {
         {/* Left Column - Images & Details */}
         <div className="flex-1 space-y-8">
           {/* Main Image */}
-          <div className="rounded-2xl overflow-hidden bg-gray-100 aspect-video md:aspect-[16/9] w-full">
+          <div className="rounded-2xl overflow-hidden bg-gray-100 aspect-video md:aspect-[16/9] w-full relative">
             {item.images && item.images.length > 0 ? (
               <img src={item.images[0]} alt={item.name} className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-gray-400">
                 No Image
+              </div>
+            )}
+            {!item.availability && (
+              <div className="absolute inset-0 bg-white/60 backdrop-blur-sm flex items-center justify-center">
+                <span className="bg-red-100 text-red-700 px-4 py-2 rounded-lg font-bold text-lg tracking-wide uppercase">
+                  Currently Unavailable
+                </span>
               </div>
             )}
           </div>
@@ -157,13 +184,8 @@ export default function ItemDetails() {
         <div className="lg:w-[400px]">
           <Card className="sticky top-24">
             <div className="mb-6">
-              <span className="text-3xl font-bold text-gray-900">${item.price}</span>
+              <span className="text-3xl font-bold text-gray-900">₹{item.price}</span>
               <span className="text-gray-500 ml-2">/ {item.priceUnit === 'day' ? t('perDay') : item.priceUnit}</span>
-            </div>
-
-            <div className="flex items-center text-sm text-gray-600 mb-6 pb-6 border-b border-gray-100">
-              <ShieldCheck className="w-5 h-5 text-green-500 mr-2 flex-shrink-0" />
-              <span>{t('securityDeposit')}: <strong>${item.securityDeposit}</strong> (Refundable)</span>
             </div>
 
             {success ? (
@@ -172,7 +194,7 @@ export default function ItemDetails() {
                 <p className="text-sm font-normal mt-1 opacity-80">Redirecting to activity...</p>
               </div>
             ) : (
-              <form onSubmit={handleBook} className="space-y-4">
+              <form onSubmit={handleBook} className="space-y-5">
                 <div className="grid grid-cols-2 gap-4">
                   <Input 
                     label={t('startDate')}
@@ -191,7 +213,41 @@ export default function ItemDetails() {
                     min={startDate || new Date().toISOString().split('T')[0]}
                   />
                 </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    {t('pickupPreference')}
+                  </label>
+                  <select 
+                    className="input w-full"
+                    value={preference}
+                    onChange={(e) => setPreference(e.target.value)}
+                  >
+                    <option value="pickup">{t('pickup')}</option>
+                    <option value="delivery">{t('delivery')}</option>
+                  </select>
+                </div>
                 
+                {/* Detailed Rental Calculator */}
+                <div className="bg-gray-50 rounded-lg p-4 border border-gray-100 mt-6 space-y-3">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">{t('rentalDuration')}</span>
+                    <span className="font-medium text-gray-900">[-] {diffDays} {t('days')} [+]</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">{t('rentalCost')}</span>
+                    <span className="font-medium text-gray-900">₹{rentalCost}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">{t('securityDeposit')}</span>
+                    <span className="font-medium text-gray-900">₹{item.securityDeposit}</span>
+                  </div>
+                  <div className="border-t border-gray-200 pt-3 flex justify-between">
+                    <span className="font-bold text-gray-900">{t('total')}</span>
+                    <span className="font-bold text-gray-900 text-lg">₹{totalAmount}</span>
+                  </div>
+                </div>
+
                 {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
 
                 <Button 
@@ -200,6 +256,7 @@ export default function ItemDetails() {
                   className="w-full mt-4" 
                   size="lg"
                   isLoading={bookingLoading}
+                  disabled={!item.availability}
                 >
                   <Calendar className="w-5 h-5 mr-2" />
                   {t('requestToBook')}

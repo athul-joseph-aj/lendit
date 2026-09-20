@@ -98,5 +98,20 @@
   "statusPending": "Pending",
   "statusActive": "Active",
   "statusDone": "Done",
-  "statusCanceled": "Canceled"
+  "statusCanceled": "Canceled",
+  "sort": "Sort by",
+  "priceLowHigh": "Price: Low to High",
+  "priceHighLow": "Price: High to Low",
+  "highestRated": "Highest Rated",
+  "locationFilter": "Location",
+  "availableOnly": "Available Only",
+  "rentalDuration": "Rental duration",
+  "days": "days",
+  "pickupPreference": "Pickup/Delivery preference",
+  "pickup": "Pickup",
+  "delivery": "Delivery",
+  "rentalCost": "Rental cost",
+  "total": "Total",
+  "statusAccepted": "Accepted",
+  "statusRejected": "Rejected"
 }
