@@ -229,5 +229,10 @@
   "completed": "പൂർത്തിയായി",
   "ownerSection": "ഉടമ വിഭാഗം",
   "backToDashboard": "ഡാഷ്‌ബോർഡിലേക്ക് മടങ്ങുക",
-  "changeAvailability": "ലഭ്യത മാറ്റുക"
+  "changeAvailability": "ലഭ്യത മാറ്റുക",
+  "setReturnReminder": "തിരികെ നൽകാനുള്ള റിമൈൻഡർ സജ്ജമാക്കുക",
+  "disableReturnReminder": "തിരികെ നൽകാനുള്ള റിമൈൻഡർ ഓഫ് ചെയ്യുക",
+  "returnReminderTitle": "വാടക തിരികെ നൽകാനുള്ള റിമൈൻഡർ",
+  "returnReminderBody": "നിങ്ങളുടെ വാടക കാലാവധി കഴിഞ്ഞു. വാടകയ്ക്ക് എടുത്ത ഇനം തിരികെ നൽകുക.",
+  "reminderError": "റിമൈൻഡർ അപ്ഡേറ്റ് ചെയ്യാനായില്ല. വീണ്ടും ശ്രമിക്കുക."
 }

@@ -3,10 +3,12 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Package, Calendar, Clock, CheckCircle, XCircle,
-  FileSearch, MapPin, AlertCircle
+  FileSearch, MapPin, AlertCircle, Bell, BellRing, BellOff
 } from 'lucide-react';
-import { getDocs, query, where, doc, getDoc } from 'firebase/firestore';
-import { bookingsCol, itemRequestsCol } from '../firebase/collections';
+import {
+  getDocs, query, where, doc, getDoc, updateDoc, serverTimestamp
+} from 'firebase/firestore';
+import { bookingsCol, itemRequestsCol, getBookingRef } from '../firebase/collections';
 import { db } from '../firebase/firebase';
 import { DEMO_MODE } from '../config/demo';
 import { useAuth } from '../context/AuthContext';
@@ -27,6 +29,9 @@ export default function Activity() {
   const [loadingRequests, setLoadingRequests] = useState(true);
   const [bookingsError, setBookingsError] = useState(false);
   const [requestsError, setRequestsError] = useState(false);
+  const [reminderLoading, setReminderLoading] = useState({});
+  const [dueReminders, setDueReminders] = useState([]);
+  const [reminderError, setReminderError] = useState(false);
 
   // ── Fetch bookings ──────────────────────────────────────
   useEffect(() => {
@@ -69,6 +74,92 @@ export default function Activity() {
     };
     fetchBookings();
   }, [currentUser]);
+
+  // ── Return reminders ────────────────────────────────────
+  const getDateValue = (dateValue) => {
+    if (!dateValue) return null;
+    const date = dateValue.toDate ? dateValue.toDate() : new Date(dateValue);
+    return Number.isNaN(date.getTime()) ? null : date;
+  };
+
+  const canHaveReturnReminder = (booking) =>
+    ['accepted', 'active'].includes(booking.status) && Boolean(getDateValue(booking.endDate));
+
+  useEffect(() => {
+    const checkDueReminders = () => {
+      const due = bookings.filter((booking) => {
+        const endDate = getDateValue(booking.endDate);
+        return booking.returnReminderEnabled
+          && canHaveReturnReminder(booking)
+          && endDate
+          && endDate <= new Date();
+      });
+
+      setDueReminders(due);
+
+      if (!due.length || typeof window === 'undefined' || !('Notification' in window)) return;
+      if (Notification.permission !== 'granted') return;
+
+      const notificationKey = 'lendit-return-reminders-shown';
+      let shownReminders = [];
+      try {
+        shownReminders = JSON.parse(window.localStorage.getItem(notificationKey) || '[]');
+      } catch {
+        shownReminders = [];
+      }
+
+      const newlyDue = due.filter((booking) => !shownReminders.includes(booking.id));
+      newlyDue.forEach((booking) => {
+        try {
+          new Notification(t('returnReminderTitle'), {
+            body: `${booking.item?.name || booking.itemName || t('unknownItem')}: ${t('returnReminderBody')}`,
+          });
+        } catch (error) {
+          console.error('Unable to show return reminder notification:', error);
+        }
+      });
+
+      if (newlyDue.length) {
+        window.localStorage.setItem(
+          notificationKey,
+          JSON.stringify([...shownReminders, ...newlyDue.map((booking) => booking.id)])
+        );
+      }
+    };
+
+    checkDueReminders();
+    const intervalId = window.setInterval(checkDueReminders, 60 * 1000);
+    return () => window.clearInterval(intervalId);
+  }, [bookings, t]);
+
+  const toggleReturnReminder = async (booking) => {
+    const enabled = !booking.returnReminderEnabled;
+    setReminderLoading((current) => ({ ...current, [booking.id]: true }));
+    setReminderError(false);
+
+    try {
+      if (enabled && typeof window !== 'undefined' && 'Notification' in window) {
+        if (Notification.permission === 'default') await Notification.requestPermission();
+      }
+
+      await updateDoc(getBookingRef(booking.id), {
+        returnReminderEnabled: enabled,
+        returnReminderAt: enabled ? booking.endDate : null,
+        reminderUpdatedAt: serverTimestamp(),
+      });
+
+      setBookings((current) => current.map((currentBooking) => (
+        currentBooking.id === booking.id
+          ? { ...currentBooking, returnReminderEnabled: enabled, returnReminderAt: enabled ? booking.endDate : null }
+          : currentBooking
+      )));
+    } catch (error) {
+      console.error('Unable to update return reminder:', error);
+      setReminderError(true);
+    } finally {
+      setReminderLoading((current) => ({ ...current, [booking.id]: false }));
+    }
+  };
 
   // ── Fetch item requests ─────────────────────────────────
   useEffect(() => {
@@ -144,6 +235,27 @@ export default function Activity() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <h1 className="text-2xl md:text-3xl font-bold text-gray-900">{t('activity')}</h1>
       </div>
+
+      {dueReminders.length > 0 && (
+        <Card className="mb-6 border-amber-200 bg-amber-50">
+          <div className="flex items-start gap-3">
+            <BellRing className="w-5 h-5 mt-0.5 text-amber-600 shrink-0" />
+            <div>
+              <h2 className="font-semibold text-amber-900">{t('returnReminderTitle')}</h2>
+              <p className="text-sm text-amber-800 mt-1">
+                {dueReminders.map((booking) => booking.item?.name || booking.itemName || t('unknownItem')).join(', ')} — {t('returnReminderBody')}
+              </p>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {reminderError && (
+        <div className="mb-6 flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          {t('reminderError')}
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-8 w-fit">
@@ -224,6 +336,23 @@ export default function Activity() {
                         <span className="text-gray-500">{t('totalAmount')}</span>
                         <span className="font-bold text-gray-900">₹{booking.totalAmount}</span>
                       </div>
+                      {canHaveReturnReminder(booking) && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="w-full mt-2"
+                          isLoading={reminderLoading[booking.id]}
+                          onClick={() => toggleReturnReminder(booking)}
+                        >
+                          {booking.returnReminderEnabled ? (
+                            <BellOff className="w-4 h-4 mr-2" />
+                          ) : (
+                            <Bell className="w-4 h-4 mr-2" />
+                          )}
+                          {booking.returnReminderEnabled ? t('disableReturnReminder') : t('setReturnReminder')}
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </Card>

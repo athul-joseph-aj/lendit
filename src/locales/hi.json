@@ -229,5 +229,10 @@
   "completed": "पूर्ण",
   "ownerSection": "मालिक अनुभाग",
   "backToDashboard": "डैशबोर्ड पर वापस",
-  "changeAvailability": "उपलब्धता बदलें"
+  "changeAvailability": "उपलब्धता बदलें",
+  "setReturnReminder": "वापसी रिमाइंडर सेट करें",
+  "disableReturnReminder": "वापसी रिमाइंडर बंद करें",
+  "returnReminderTitle": "किराया वापसी रिमाइंडर",
+  "returnReminderBody": "आपकी किराये की अवधि समाप्त हो गई है। कृपया सामान वापस करें।",
+  "reminderError": "रिमाइंडर अपडेट नहीं हो सका। कृपया फिर कोशिश करें।"
 }

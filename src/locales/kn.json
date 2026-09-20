@@ -229,5 +229,10 @@
   "completed": "ಪೂರ್ಣಗೊಂಡಿದೆ",
   "ownerSection": "ಮಾಲೀಕರ ವಿಭಾಗ",
   "backToDashboard": "ಡ್ಯಾಶ್‌ಬೋರ್ಡ್‌ಗೆ ಹಿಂತಿರುಗಿ",
-  "changeAvailability": "ಲಭ್ಯತೆ ಬದಲಾಯಿಸಿ"
+  "changeAvailability": "ಲಭ್ಯತೆ ಬದಲಾಯಿಸಿ",
+  "setReturnReminder": "ಹಿಂತಿರುಗಿಸುವ ಜ್ಞಾಪನೆಯನ್ನು ಹೊಂದಿಸಿ",
+  "disableReturnReminder": "ಹಿಂತಿರುಗಿಸುವ ಜ್ಞಾಪನೆಯನ್ನು ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಿ",
+  "returnReminderTitle": "ಬಾಡಿಗೆ ಹಿಂತಿರುಗಿಸುವ ಜ್ಞಾಪನೆ",
+  "returnReminderBody": "ನಿಮ್ಮ ಬಾಡಿಗೆ ಅವಧಿ ಮುಗಿದಿದೆ. ಬಾಡಿಗೆ ಪಡೆದ ವಸ್ತುವನ್ನು ಹಿಂತಿರುಗಿಸಿ.",
+  "reminderError": "ಜ್ಞಾಪನೆಯನ್ನು ನವೀಕರಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ."
 }
