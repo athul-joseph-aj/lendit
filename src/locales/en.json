@@ -303,7 +303,6 @@
   "itemRequestPlaceholder": "e.g. Projector, Camera, Tent...",
   "descriptionPlaceholder": "Describe what you need and any specific requirements...",
   "budgetPlaceholder": "e.g. ₹500/day",
-  "seedDemoData": "Load demo items",
   "or": "or",
   "missingDates": "Start date and end date are required.",
   "invalidDateRange": "Please select a valid date range.",

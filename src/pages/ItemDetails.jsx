@@ -5,7 +5,6 @@ import { getDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { getItemRef, getUserRef, bookingsCol } from '../firebase/collections';
 import { DEMO_MODE, DEMO_USER_ID } from '../config/demo';
 import { useAuth } from '../context/AuthContext';
-import { MOCK_ITEMS } from './Rent';
 import { useTranslation } from '../hooks/useTranslation';
 import { MapPin, Star, Calendar, ShieldCheck, User } from 'lucide-react';
 import Card from '../components/Card';
@@ -53,27 +52,11 @@ export default function ItemDetails() {
             }
           }
         } else {
-          const demoIndex = Number(itemId?.replace('demo-item-', '')) - 1;
-          const demoItem = Number.isInteger(demoIndex) ? MOCK_ITEMS[demoIndex] : null;
-
-          if (demoItem) {
-            setItem({ id: itemId, ...demoItem });
-            setOwnerName(demoItem.ownerId || t('owner'));
-          } else {
-            setError(t('itemNotFound'));
-          }
+          setError(t('itemNotFound'));
         }
       } catch (err) {
         console.error("Error fetching item:", err);
-        const demoIndex = Number(itemId?.replace('demo-item-', '')) - 1;
-        const demoItem = Number.isInteger(demoIndex) ? MOCK_ITEMS[demoIndex] : null;
-
-        if (demoItem) {
-          setItem({ id: itemId, ...demoItem });
-          setOwnerName(demoItem.ownerId || t('owner'));
-        } else {
-          setError(t('firebaseError'));
-        }
+        setError(t('firebaseError'));
       } finally {
         setLoading(false);
       }

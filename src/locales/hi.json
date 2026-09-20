@@ -293,7 +293,6 @@
   "itemRequestPlaceholder": "जैसे प्रोजेक्टर, कैमरा, टेंट...",
   "descriptionPlaceholder": "आपको क्या चाहिए और कोई विशेष आवश्यकता लिखें...",
   "budgetPlaceholder": "जैसे ₹500/दिन",
-  "seedDemoData": "डेमो आइटम लोड करें",
   "or": "या",
   "missingDates": "प्रारंभ और समाप्ति तिथि आवश्यक हैं।",
   "invalidDateRange": "कृपया सही तिथि सीमा चुनें।",

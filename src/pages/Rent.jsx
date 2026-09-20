@@ -14,108 +14,6 @@ import Loading from '../components/Loading';
 import Modal from '../components/Modal';
 import RentalItemCard from '../components/RentalItemCard';
 
-// ─── MOCK DATA ────────────────────────────────────────────────────────────────
-export const MOCK_ITEMS = [
-  {
-    ownerId: 'owner-main',
-    name: 'Canon EOS 90D DSLR Camera',
-    category: 'Cameras',
-    description: 'Professional DSLR camera with 32.5MP sensor. Includes 18-55mm and 55-250mm lenses, 2 batteries, charger, and 128GB SD card. Perfect for events, portraits and wildlife.',
-    images: ['https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=800'],
-    price: 750,
-    priceUnit: 'day',
-    securityDeposit: 5000,
-    location: 'Kochi, Kerala',
-    availability: true,
-    rating: 4.8,
-    createdAt: new Date(),
-  },
-  {
-    ownerId: 'owner-main',
-    name: 'Dell XPS 15 Laptop',
-    category: 'Laptops',
-    description: 'High-performance Dell XPS 15 with Intel Core i7, 16GB RAM, 512GB SSD, and NVIDIA GeForce GTX 1650. Ideal for design work, presentations, and coding.',
-    images: ['https://images.unsplash.com/photo-1593642632559-0c6d3fc62b89?auto=format&fit=crop&q=80&w=800'],
-    price: 600,
-    priceUnit: 'day',
-    securityDeposit: 8000,
-    location: 'Trivandrum, Kerala',
-    availability: true,
-    rating: 4.7,
-    createdAt: new Date(),
-  },
-  {
-    ownerId: 'owner-main',
-    name: 'Epson Full HD Projector',
-    category: 'Event Equipment',
-    description: '4000-lumen Full HD projector with HDMI, USB, and VGA inputs. Perfect for college events, presentations, movie nights, and weddings.',
-    images: ['https://images.unsplash.com/photo-1611532736597-de2d4265fba3?auto=format&fit=crop&q=80&w=800'],
-    price: 500,
-    priceUnit: 'day',
-    securityDeposit: 3000,
-    location: 'Calicut, Kerala',
-    availability: true,
-    rating: 4.9,
-    createdAt: new Date(),
-  },
-  {
-    ownerId: 'owner-main',
-    name: 'Bosch Professional Power Drill',
-    category: 'Tools',
-    description: 'Heavy-duty 20V cordless impact drill for concrete, wood, and metal. Includes a full set of 25 drill bits, two batteries, and a fast charger.',
-    images: ['https://images.unsplash.com/photo-1504148455328-c376907d081c?auto=format&fit=crop&q=80&w=800'],
-    price: 200,
-    priceUnit: 'day',
-    securityDeposit: 1000,
-    location: 'Thrissur, Kerala',
-    availability: true,
-    rating: 4.5,
-    createdAt: new Date(),
-  },
-  {
-    ownerId: 'owner-main',
-    name: 'Coleman 6-Person Camping Tent',
-    category: 'Household',
-    description: 'Spacious 6-person dome tent with weather-resistant rainfly and ground cloth. Easy 20-minute setup. Great for weekend treks and outdoor events.',
-    images: ['https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?auto=format&fit=crop&q=80&w=800'],
-    price: 350,
-    priceUnit: 'day',
-    securityDeposit: 1500,
-    location: 'Munnar, Kerala',
-    availability: true,
-    rating: 4.6,
-    createdAt: new Date(),
-  },
-  {
-    ownerId: 'owner-main',
-    name: 'JBL PartyBox 310 Speaker',
-    category: 'Event Equipment',
-    description: 'Powerful 240W RMS portable speaker with dynamic light show, splash-proof design, and 18-hour playtime. Turn any space into a party.',
-    images: ['https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?auto=format&fit=crop&q=80&w=800'],
-    price: 800,
-    priceUnit: 'day',
-    securityDeposit: 4000,
-    location: 'Kottayam, Kerala',
-    availability: true,
-    rating: 4.9,
-    createdAt: new Date(),
-  },
-  {
-    ownerId: 'owner-main',
-    name: 'Swift Dzire — Self Drive Car',
-    category: 'Vehicles',
-    description: 'Well-maintained 2022 Maruti Swift Dzire with AC, Bluetooth, and GPS. Petrol, clean interior. Fuel not included. Valid driving licence required.',
-    images: ['https://images.unsplash.com/photo-1502877338535-766e1452684a?auto=format&fit=crop&q=80&w=800'],
-    price: 1200,
-    priceUnit: 'day',
-    securityDeposit: 5000,
-    location: 'Ernakulam, Kerala',
-    availability: false,   // intentionally unavailable for demo
-    rating: 4.4,
-    createdAt: new Date(),
-  },
-];
-
 // ─── RENTAL REQUEST MODAL ─────────────────────────────────────────────────────
 function RentalRequestModal({ isOpen, onClose, item }) {
   const { t } = useTranslation();
@@ -520,48 +418,19 @@ export default function Rent() {
   ];
 
   const fetchItems = async () => {
-    const demoItems = MOCK_ITEMS.map((item, index) => ({ id: `demo-item-${index + 1}`, ...item }));
-
-    // Render the local catalog immediately in demo mode while Firestore loads.
-    if (DEMO_MODE) {
-      setItems(demoItems);
-      setLoading(false);
-    }
-
     try {
-      if (!DEMO_MODE) setLoading(true);
+      setLoading(true);
       const snapshot = await getDocs(query(itemsCol));
-      const fetchedItems = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-
-      // Keep the rental experience usable while the Firestore collection is
-      // empty during demo mode. These items can still be requested normally.
-      setItems(fetchedItems.length > 0
-        ? fetchedItems
-        : demoItems);
+      setItems(snapshot.docs.map((itemDoc) => ({ id: itemDoc.id, ...itemDoc.data() })));
     } catch (err) {
       console.error('Error fetching items:', err);
-      // A Firestore read can fail when demo security rules are not configured.
-      // Show the local catalog instead of leaving the rental page blank.
-      setItems(demoItems);
+      setItems([]);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => { fetchItems(); }, []);
-
-  const handleSeedData = async () => {
-    try {
-      setLoading(true);
-      for (const item of MOCK_ITEMS) {
-        await addDoc(itemsCol, item);
-      }
-      await fetchItems();
-    } catch (err) {
-      console.error('Error seeding data:', err);
-      setLoading(false);
-    }
-  };
 
   const clearFilters = () => {
     setSearchQuery('');
@@ -598,9 +467,6 @@ export default function Rent() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <h1 className="text-2xl md:text-3xl font-bold text-gray-900">{t('exploreRentals')}</h1>
-        <Button onClick={handleSeedData} variant="secondary" size="sm">
-          {t('seedDemoData')}
-        </Button>
       </div>
 
       {/* Search & Filters */}
