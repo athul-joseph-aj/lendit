@@ -3,9 +3,11 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { getItemRef, bookingsCol } from '../firebase/collections';
+import { DEMO_USER_ID } from '../config/demo';
 import { useAuth } from '../context/AuthContext';
+import { MOCK_ITEMS } from './Rent';
 import { useTranslation } from '../hooks/useTranslation';
-import { MapPin, Star, Calendar, ShieldCheck, User, Truck } from 'lucide-react';
+import { MapPin, Star, Calendar, ShieldCheck, User } from 'lucide-react';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import Loading from '../components/Loading';
@@ -34,11 +36,25 @@ export default function ItemDetails() {
         if (docSnap.exists()) {
           setItem({ id: docSnap.id, ...docSnap.data() });
         } else {
-          setError('Item not found');
+          const demoIndex = Number(itemId?.replace('demo-item-', '')) - 1;
+          const demoItem = Number.isInteger(demoIndex) ? MOCK_ITEMS[demoIndex] : null;
+
+          if (demoItem) {
+            setItem({ id: itemId, ...demoItem });
+          } else {
+            setError('Item not found');
+          }
         }
       } catch (err) {
         console.error("Error fetching item:", err);
-        setError('Error loading item details');
+        const demoIndex = Number(itemId?.replace('demo-item-', '')) - 1;
+        const demoItem = Number.isInteger(demoIndex) ? MOCK_ITEMS[demoIndex] : null;
+
+        if (demoItem) {
+          setItem({ id: itemId, ...demoItem });
+        } else {
+          setError('Error loading item details');
+        }
       } finally {
         setLoading(false);
       }
@@ -62,10 +78,6 @@ export default function ItemDetails() {
 
   const handleBook = async (e) => {
     e.preventDefault();
-    if (!currentUser) {
-      navigate('/login');
-      return;
-    }
 
     if (!startDate || !endDate) {
       setError('Start date and end date are required');
@@ -90,7 +102,7 @@ export default function ItemDetails() {
       
       await addDoc(bookingsCol, {
         itemId: item.id,
-        renterId: currentUser.uid,
+        renterId: currentUser?.uid || DEMO_USER_ID,
         ownerId: item.ownerId,
         startDate: start,
         endDate: end,
@@ -104,7 +116,6 @@ export default function ItemDetails() {
       });
       
       setSuccess(true);
-      setTimeout(() => navigate('/activity'), 2000);
     } catch (err) {
       console.error("Error booking item:", err);
       setError('Could not process booking request');
@@ -189,9 +200,20 @@ export default function ItemDetails() {
             </div>
 
             {success ? (
-              <div className="bg-green-50 text-green-700 p-4 rounded-xl text-center font-medium border border-green-200">
-                {t('bookingRequested')}
-                <p className="text-sm font-normal mt-1 opacity-80">Redirecting to activity...</p>
+              <div className="text-center py-2">
+                <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <ShieldCheck className="w-7 h-7 text-green-600" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 mb-2">{t('rentalRequestSent')}</h3>
+                <p className="text-sm text-gray-500 mb-5">{t('ownerWillReview')}</p>
+                <div className="flex flex-col gap-2">
+                  <Button variant="primary" className="w-full" onClick={() => navigate('/activity')}>
+                    {t('viewMyRentals')}
+                  </Button>
+                  <Button variant="secondary" className="w-full" onClick={() => navigate('/rent')}>
+                    {t('continueBrowsing')}
+                  </Button>
+                </div>
               </div>
             ) : (
               <form onSubmit={handleBook} className="space-y-5">
@@ -259,14 +281,9 @@ export default function ItemDetails() {
                   disabled={!item.availability}
                 >
                   <Calendar className="w-5 h-5 mr-2" />
-                  {t('requestToBook')}
+                  {t('requestToRent')}
                 </Button>
                 
-                {!currentUser && (
-                  <p className="text-center text-sm text-gray-500 mt-2">
-                    You will be asked to log in first.
-                  </p>
-                )}
               </form>
             )}
           </Card>

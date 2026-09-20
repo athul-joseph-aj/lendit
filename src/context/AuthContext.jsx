@@ -3,12 +3,14 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  signInAnonymously,
   signOut,
   onAuthStateChanged,
   updateProfile,
 } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../firebase/firebase';
+import { DEMO_MODE } from '../config/demo';
 
 const AuthContext = createContext(null);
 
@@ -30,9 +32,21 @@ export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Track Firebase auth state
+  // Track Firebase auth state. In demo mode, create a silent anonymous
+  // session so Firestore rules that require request.auth still allow requests.
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (!user && DEMO_MODE) {
+        try {
+          await signInAnonymously(auth);
+          return;
+        } catch (err) {
+          // The app can still run with the local demo identity when anonymous
+          // sign-in is disabled in Firebase.
+          console.warn('Anonymous demo sign-in unavailable:', err.message);
+        }
+      }
+
       setCurrentUser(user);
       setLoading(false);
     });
