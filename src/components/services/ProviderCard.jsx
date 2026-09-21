@@ -16,6 +16,7 @@ export default function ProviderCard({ provider }) {
     id,
     name,
     services = [],
+    customServiceName = '',
     experience = 0,
     rating = 0,
     reviewCount = 0,
@@ -29,6 +30,9 @@ export default function ProviderCard({ provider }) {
   // Human-readable category label from translation key
   const primaryService = services[0] ?? 'other';
   const serviceKey = `${primaryService}Service`;
+  const serviceLabel = services.includes('other') && customServiceName
+    ? customServiceName
+    : t(serviceKey);
 
   const initials = name
     ? name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
@@ -61,7 +65,7 @@ export default function ProviderCard({ provider }) {
               <span className="flex-shrink-0 w-2 h-2 rounded-full bg-green-400" title="Available" />
             )}
           </div>
-          <p className="text-sm text-primary font-medium mb-1">{t(serviceKey)}</p>
+          <p className="text-sm text-primary font-medium mb-1">{serviceLabel}</p>
           <StarRating rating={rating} />
           {reviewCount > 0 && (
             <span className="text-xs text-gray-400 ml-1">({reviewCount})</span>

@@ -50,7 +50,7 @@ export default function ProviderProfile() {
   }
 
   const {
-    name, services = [], experience = 0, rating = 0, reviewCount = 0,
+    name, services = [], customServiceName = '', experience = 0, rating = 0, reviewCount = 0,
     location = '', startingPrice = 0, isAvailable = false,
     profileImage = '', about = '', phone = '',
     availability = [],
@@ -58,6 +58,9 @@ export default function ProviderProfile() {
 
   const primaryService = services[0] ?? 'other';
   const serviceKey = `${primaryService}Service`;
+  const serviceLabel = services.includes('other') && customServiceName
+    ? customServiceName
+    : t(serviceKey);
   const initials = name
     ? name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
     : '?';
@@ -106,7 +109,7 @@ export default function ProviderProfile() {
             {/* Info */}
             <div className="flex-1">
               <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-1">{name}</h1>
-              <p className="text-primary font-semibold mb-2">{t(serviceKey)}</p>
+              <p className="text-primary font-semibold mb-2">{serviceLabel}</p>
 
               <div className="flex items-center gap-2 mb-4">
                 <StarRating rating={rating} size="md" />
@@ -159,7 +162,7 @@ export default function ProviderProfile() {
                   key={s}
                   className="px-3 py-1 bg-primary-50 text-primary text-sm font-medium rounded-full border border-primary-100"
                 >
-                  {t(`${s}Service`)}
+                  {s === 'other' && customServiceName ? customServiceName : t(`${s}Service`)}
                 </span>
               ))}
             </div>

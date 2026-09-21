@@ -23,6 +23,7 @@ import Card from '../components/Card';
 import EmptyState from '../components/EmptyState';
 import Loading from '../components/Loading';
 import Button from '../components/Button';
+import ProblemReportModal, { canReportProblem, getProblemEventDate } from '../components/ProblemReportModal';
 
 export default function Activity() {
   const { t } = useTranslation();
@@ -43,6 +44,7 @@ export default function Activity() {
   const [reminderLoading, setReminderLoading] = useState({});
   const [dueReminders, setDueReminders] = useState([]);
   const [reminderError, setReminderError] = useState(false);
+  const [problemTransaction, setProblemTransaction] = useState(null);
 
   // ── Fetch bookings ──────────────────────────────────────
   useEffect(() => {
@@ -506,6 +508,17 @@ export default function Activity() {
                           {booking.returnReminderEnabled ? t('disableReturnReminder') : t('setReturnReminder')}
                         </Button>
                       )}
+                      {getProblemEventDate(booking, 'rental') && (
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          className="w-full mt-2"
+                          onClick={() => setProblemTransaction(booking)}
+                        >
+                          {canReportProblem(booking, 'rental') ? 'Raise a Problem' : 'Problem window closed'}
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </Card>
@@ -669,6 +682,13 @@ export default function Activity() {
           </div>
         </section>
       )}
+
+      <ProblemReportModal
+        isOpen={Boolean(problemTransaction)}
+        onClose={() => setProblemTransaction(null)}
+        transaction={problemTransaction}
+        transactionType="rental"
+      />
     </div>
   );
 }

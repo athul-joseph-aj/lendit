@@ -2,8 +2,8 @@
 // Service provider dashboard: manage incoming requests, accepted jobs, and view earnings.
 // 100% stored in Firebase Firestore. Zero localStorage.
 
-import { useState, useMemo } from 'react';
-import { Link, useSearchParams, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Wrench,
   Clock,
@@ -11,40 +11,28 @@ import {
   XCircle,
   Calendar,
   MapPin,
-  DollarSign,
-  User,
   AlertCircle,
   Loader2,
   TrendingUp,
   Settings,
-  ArrowRight,
-  Phone,
   CheckCheck,
-  ChevronDown
 } from 'lucide-react';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase/firebase';
 import { useTranslation } from '../../hooks/useTranslation';
+import { useAuth } from '../../context/AuthContext';
 import { useProviderProfile } from '../../hooks/services/useProviderProfile';
-import { useServiceProviders } from '../../hooks/services/useServiceProviders';
 import { useProviderRequests } from '../../hooks/services/useServiceRequests';
 import RequestStatusBadge from '../../components/services/RequestStatusBadge';
 import { SERVICE_CATEGORIES } from '../Services';
 
 export default function ProviderDashboard() {
   const { t } = useTranslation();
-  const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
-
-  // Load all providers directly from Firebase Firestore
-  const { providers: allProviders, loading: allProvidersLoading } = useServiceProviders();
-
-  // Provider ID: from URL search params, or default to first provider in Firestore
-  const urlProviderId = searchParams.get('providerId');
-  const activeProviderId = urlProviderId || (allProviders.length > 0 ? allProviders[0].id : null);
+  const { currentUser } = useAuth();
+  const activeProviderId = currentUser?.uid || null;
 
   const { provider, loading: profileLoading } = useProviderProfile(activeProviderId);
-  const { requests, loading: requestsLoading, error } = useProviderRequests(activeProviderId);
+  const { requests, loading: requestsLoading } = useProviderRequests(activeProviderId);
 
   const [activeTab, setActiveTab] = useState('incoming'); // 'incoming' | 'upcoming' | 'completed' | 'all'
   const [updatingId, setUpdatingId] = useState(null);
@@ -74,10 +62,6 @@ export default function ProviderDashboard() {
     };
   };
 
-  const handleProviderSelect = (newId) => {
-    setSearchParams({ providerId: newId });
-  };
-
   const handleUpdateStatus = async (requestId, newStatus) => {
     if (newStatus === 'rejected') {
       if (!window.confirm(t('confirmReject') || 'Are you sure you want to reject this request?')) {
@@ -90,6 +74,7 @@ export default function ProviderDashboard() {
       const reqRef = doc(db, 'serviceRequests', requestId);
       await updateDoc(reqRef, {
         status: newStatus,
+        ...(newStatus === 'completed' ? { completedAt: serverTimestamp() } : {}),
         updatedAt: serverTimestamp(),
       });
     } catch (err) {
@@ -100,7 +85,7 @@ export default function ProviderDashboard() {
     }
   };
 
-  const loading = allProvidersLoading || (activeProviderId && (profileLoading || requestsLoading));
+  const loading = activeProviderId && (profileLoading || requestsLoading);
 
   if (loading) {
     return (
@@ -111,7 +96,7 @@ export default function ProviderDashboard() {
   }
 
   // If no providers exist in Firebase Firestore yet
-  if (!provider && allProviders.length === 0) {
+  if (!provider) {
     return (
       <div className="flex-1 bg-gray-50 min-h-screen py-12 px-4 sm:px-6 lg:px-8 flex items-center justify-center">
         <div className="max-w-md w-full bg-white rounded-2xl border border-gray-200/80 p-8 text-center shadow-sm">
@@ -136,41 +121,12 @@ export default function ProviderDashboard() {
     );
   }
 
-  const currentProvider = provider || allProviders[0];
+  const currentProvider = provider;
   const filteredRequests = getFilteredList();
 
   return (
     <div className="flex-1 bg-gray-50 min-h-screen py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-5xl mx-auto">
-        {/* Top Switcher Bar: Provider Identity in Firebase */}
-        {allProviders.length > 1 && (
-          <div className="bg-white rounded-xl border border-gray-200 p-3 mb-6 flex flex-wrap items-center justify-between gap-3 shadow-sm">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                Viewing Provider:
-              </span>
-              <select
-                value={currentProvider?.id || ''}
-                onChange={(e) => handleProviderSelect(e.target.value)}
-                className="text-xs font-bold text-gray-900 bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#4682B4]"
-              >
-                {allProviders.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} ({p.location}) - {p.services?.join(', ')}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <Link
-              to="/services/provider-register"
-              className="text-xs font-semibold text-[#4682B4] hover:underline"
-            >
-              + Register Another Provider
-            </Link>
-          </div>
-        )}
-
         {/* Top Header */}
         <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
           <div>
@@ -196,14 +152,14 @@ export default function ProviderDashboard() {
           {/* Action Links */}
           <div className="flex items-center gap-3">
             <Link
-              to={`/services/provider-earnings?providerId=${currentProvider?.id}`}
+              to="/services/provider-earnings"
               className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-xl text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 transition-colors shadow-sm"
             >
               <TrendingUp className="w-3.5 h-3.5" />
               <span>{t('providerEarnings') || 'Earnings'}</span>
             </Link>
             <Link
-              to={`/services/provider-register?providerId=${currentProvider?.id}`}
+              to="/services/provider-register"
               className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-xl text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 transition-colors shadow-sm"
             >
               <Settings className="w-3.5 h-3.5" />
@@ -316,6 +272,7 @@ export default function ProviderDashboard() {
           <div className="space-y-4">
             {filteredRequests.map((req) => {
               const meta = getCategoryMeta(req.serviceCategory);
+              const serviceLabel = req.serviceName || (req.serviceCategory === 'other' ? 'Custom service' : t(meta.key));
               const isUpdating = updatingId === req.id;
               const dateStr = req.createdAt?.toDate
                 ? req.createdAt.toDate().toLocaleDateString()
@@ -340,7 +297,7 @@ export default function ProviderDashboard() {
                           <RequestStatusBadge status={req.status} />
                         </div>
                         <p className="text-xs text-gray-500 mt-0.5">
-                          {t(meta.key)} {dateStr && `• Received ${dateStr}`}
+                          {serviceLabel} {dateStr && `• Received ${dateStr}`}
                           {req.customerPhone && ` • Contact: ${req.customerPhone}`}
                         </p>
                       </div>

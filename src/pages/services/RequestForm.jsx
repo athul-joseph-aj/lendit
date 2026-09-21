@@ -117,13 +117,15 @@ export default function RequestForm() {
       }
 
       const primaryService = provider?.services?.[0] ?? 'other';
+      const selectedService = form.serviceCategory || primaryService;
       const requestData = {
         customerId:      currentUser.uid,
         customerName:    form.customerName.trim(),
         customerPhone:   form.customerPhone.trim(),
         providerId:      providerId,
         providerName:    provider?.name ?? 'Provider',
-        serviceCategory: form.serviceCategory || primaryService,
+        serviceCategory: selectedService,
+        serviceName: selectedService === 'other' ? (provider?.customServiceName || 'Custom service') : '',
         description:     form.description.trim(),
         date:            form.date,
         time:            form.time,
@@ -171,6 +173,9 @@ export default function RequestForm() {
   }
 
   const primaryService = provider?.services?.[0] ?? 'other';
+  const serviceLabel = (slug) => slug === 'other' && provider?.customServiceName
+    ? provider.customServiceName
+    : t(SERVICE_CATEGORIES.find((c) => c.slug === slug)?.key || `${slug}Service`);
 
   return (
     <div className="flex-1 bg-gray-50 min-h-screen py-8 px-4 sm:px-6 lg:px-8">
@@ -266,12 +271,12 @@ export default function RequestForm() {
                   const cat = SERVICE_CATEGORIES.find((c) => c.slug === slug);
                   return (
                     <option key={slug} value={slug}>
-                      {cat?.emoji} {t(cat?.key || slug)}
+                    {cat?.emoji} {serviceLabel(slug)}
                     </option>
                   );
                 }) || (
                   <option value={primaryService}>
-                    {t(SERVICE_CATEGORIES.find((c) => c.slug === primaryService)?.key || primaryService)}
+                    {serviceLabel(primaryService)}
                   </option>
                 )}
               </select>

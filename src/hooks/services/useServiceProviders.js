@@ -57,6 +57,7 @@ export function useServiceProviders(
             (p) =>
               p.name?.toLowerCase().includes(q2) ||
               p.location?.toLowerCase().includes(q2) ||
+              p.customServiceName?.toLowerCase().includes(q2) ||
               (Array.isArray(p.services) && p.services.some((s) => s.toLowerCase().includes(q2)))
           );
         }

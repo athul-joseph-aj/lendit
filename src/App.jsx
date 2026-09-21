@@ -36,6 +36,7 @@ import MyListings from './pages/owner/MyListings';
 import RentalRequests from './pages/owner/RentalRequests';
 import ActiveRentals from './pages/owner/ActiveRentals';
 import Earnings from './pages/owner/Earnings';
+import MarketplaceAgreement from './components/MarketplaceAgreement';
 
 function App() {
   return (
@@ -182,6 +183,7 @@ function App() {
               </Routes>
             </main>
             <Footer />
+            <MarketplaceAgreement />
           </div>
         </AuthProvider>
       </LanguageProvider>

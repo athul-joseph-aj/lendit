@@ -3,7 +3,7 @@
 // Zero localStorage used.
 
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import {
   ArrowLeft,
   User,
@@ -61,7 +61,6 @@ const PRICE_PRESETS = [199, 299, 499, 799];
 export default function ProviderRegister() {
   const { currentUser } = useAuth();
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const fileInputRef = useRef(null);
 
   const { provider: existingProfile, loading: profileLoading } = useProviderProfile(currentUser?.uid);
@@ -71,6 +70,7 @@ export default function ProviderRegister() {
     phone: '',
     experience: '3',
     location: '',
+    customServiceName: '',
     startingPrice: '299',
     workingHours: 'Full Day (9 AM - 6 PM)',
     about: '',
@@ -98,6 +98,7 @@ export default function ProviderRegister() {
         phone: existingProfile.phone || '',
         experience: existingProfile.experience?.toString() || '3',
         location: existingProfile.location || '',
+        customServiceName: existingProfile.customServiceName || '',
         startingPrice: existingProfile.startingPrice?.toString() || '299',
         workingHours: existingProfile.workingHours || 'Full Day (9 AM - 6 PM)',
         about: existingProfile.about || '',
@@ -208,6 +209,15 @@ export default function ProviderRegister() {
       setError('Please enter your service location or city.');
       return;
     }
+    if (selectedServices.includes('other') && !form.customServiceName.trim()) {
+      setError('Please enter the name of your custom service.');
+      return;
+    }
+    const startingPrice = Number(form.startingPrice);
+    if (!form.startingPrice.trim() || !Number.isFinite(startingPrice) || startingPrice < 0) {
+      setError('Please enter a valid non-negative service amount.');
+      return;
+    }
 
     setSubmitting(true);
     setError('');
@@ -233,7 +243,8 @@ export default function ProviderRegister() {
         services: selectedServices,
         experience: Number(form.experience) || 1,
         location: form.location.trim(),
-        startingPrice: Number(form.startingPrice) || 299,
+        customServiceName: selectedServices.includes('other') ? form.customServiceName.trim() : '',
+        startingPrice,
         workingHours: form.workingHours,
         about: form.about.trim() || `Experienced service professional in ${form.location.trim()}.`,
         profileImage: profileImageUrl,
@@ -312,7 +323,7 @@ export default function ProviderRegister() {
                 View Public Profile
               </Link>
               <Link
-                to={`/services/provider-dashboard?providerId=${savedDocId}`}
+                to="/services/provider-dashboard"
                 className="w-full sm:w-auto px-5 py-2.5 rounded-xl text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 transition-all"
               >
                 Go to Dashboard
@@ -335,6 +346,7 @@ export default function ProviderRegister() {
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>Saved Directly to Firebase • Cloud Database</span>
               </div>
+
               <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
                 {existingProfile ? 'Update Provider Details' : 'Add Service Provider Details'}
               </h1>
@@ -417,6 +429,23 @@ export default function ProviderRegister() {
                   })}
                 </div>
               </div>
+
+              {selectedServices.includes('other') && (
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                    Custom Service Name *
+                  </label>
+                  <input
+                    type="text"
+                    name="customServiceName"
+                    value={form.customServiceName}
+                    onChange={handleChange}
+                    required
+                    placeholder="e.g. AC installation and maintenance"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#4682B4]/20 focus:border-[#4682B4] transition-all"
+                  />
+                </div>
+              )}
 
               {/* 3. Location (Simple, with chips & GPS detect) */}
               <div className="p-4 rounded-xl bg-gray-50/80 border border-gray-100 space-y-3">
@@ -586,7 +615,7 @@ export default function ProviderRegister() {
                       value={form.startingPrice}
                       onChange={handleChange}
                       required
-                      min="50"
+                      min="0"
                       step="10"
                       className="w-full pl-8 pr-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#4682B4]/20 focus:border-[#4682B4] transition-all"
                     />

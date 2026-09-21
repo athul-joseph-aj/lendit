@@ -24,6 +24,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useMyServiceRequests } from '../../hooks/services/useServiceRequests';
 import RequestStatusBadge from '../../components/services/RequestStatusBadge';
 import { SERVICE_CATEGORIES } from '../Services';
+import ProblemReportModal, { canReportProblem, getProblemEventDate } from '../../components/ProblemReportModal';
 
 const TABS = [
   { id: 'all', labelKey: 'all' },
@@ -48,6 +49,7 @@ export default function MyRequests() {
   const [activeTab, setActiveTab] = useState('all');
   const [cancellingId, setCancellingId] = useState(null);
   const [cancelError, setCancelError] = useState('');
+  const [problemTransaction, setProblemTransaction] = useState(null);
 
   const filteredRequests = requests.filter((req) => {
     if (activeTab === 'all') return true;
@@ -222,6 +224,7 @@ export default function MyRequests() {
           <div className="space-y-4">
             {filteredRequests.map((req) => {
               const meta = getCategoryMeta(req.serviceCategory);
+              const serviceLabel = req.serviceName || (req.serviceCategory === 'other' ? 'Custom service' : t(meta.key));
               const isCancellable = req.status === 'pending' || req.status === 'accepted';
               const createdDate = req.createdAt?.toDate
                 ? req.createdAt.toDate().toLocaleDateString()
@@ -241,7 +244,7 @@ export default function MyRequests() {
                       <div>
                         <div className="flex items-center gap-2">
                           <h3 className="font-semibold text-gray-900 text-base">
-                            {t(meta.key)}
+                            {serviceLabel}
                           </h3>
                           <RequestStatusBadge status={req.status} />
                         </div>
@@ -332,12 +335,29 @@ export default function MyRequests() {
                       </button>
                     </div>
                   )}
+                  {req.status === 'completed' && getProblemEventDate(req, 'service') && (
+                    <div className="pt-3 border-t border-gray-100 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => setProblemTransaction(req)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg text-[#4682B4] hover:bg-blue-50 border border-blue-200 transition-colors"
+                      >
+                        {canReportProblem(req, 'service') ? 'Raise a Problem' : 'Problem window closed'}
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
             })}
           </div>
         )}
       </div>
+      <ProblemReportModal
+        isOpen={Boolean(problemTransaction)}
+        onClose={() => setProblemTransaction(null)}
+        transaction={problemTransaction}
+        transactionType="service"
+      />
     </div>
   );
 }

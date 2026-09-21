@@ -13,6 +13,8 @@ import Loading from '../components/Loading';
 import Modal from '../components/Modal';
 import RentalItemCard from '../components/RentalItemCard';
 
+const normalizeLocation = (value) => String(value || '').trim().toLowerCase();
+
 // ─── RENTAL REQUEST MODAL ─────────────────────────────────────────────────────
 function RentalRequestModal({ isOpen, onClose, item }) {
   const { t } = useTranslation();
@@ -616,8 +618,9 @@ export default function Rent() {
   const processedItems = items
     .filter((item) => {
       const searchableText = `${item.name || ''} ${item.category || ''} ${item.location || ''}`.toLowerCase();
-      const matchesSearch = searchableText.includes(searchQuery.toLowerCase());
-      const matchesLocation = item.location?.toLowerCase().includes(locationQuery.toLowerCase());
+      const matchesSearch = searchableText.includes(searchQuery.trim().toLowerCase());
+      const normalizedLocation = normalizeLocation(locationQuery);
+      const matchesLocation = !normalizedLocation || normalizeLocation(item.location).includes(normalizedLocation);
       const matchesCategory = selectedCategory ? item.category === selectedCategory : true;
       const matchesAvailability = availableOnly ? item.availability === true : true;
       const matchesMinPrice = minPrice === '' || Number(item.price) >= Number(minPrice);
@@ -630,6 +633,16 @@ export default function Rent() {
       if (sortBy === 'rating') return (b.rating || 0) - (a.rating || 0);
       return 0;
     });
+
+  const processedCommunityRequests = communityRequests.filter((request) => {
+    const normalizedSearch = searchQuery.trim().toLowerCase();
+    const normalizedLocation = normalizeLocation(locationQuery);
+    const searchableText = `${request.itemName || ''} ${request.category || ''} ${request.description || ''} ${request.location || ''}`.toLowerCase();
+    const matchesSearch = !normalizedSearch || searchableText.includes(normalizedSearch);
+    const matchesLocation = !normalizedLocation || normalizeLocation(request.location).includes(normalizedLocation);
+    const matchesCategory = !selectedCategory || request.category === selectedCategory;
+    return matchesSearch && matchesLocation && matchesCategory;
+  });
 
   const isFiltered = searchQuery || locationQuery || selectedCategory || availableOnly || minPrice || maxPrice;
 
@@ -729,7 +742,7 @@ export default function Rent() {
             <p className="text-sm text-gray-500 mt-1">{t('communityRequestsDesc')}</p>
           </div>
           <span className="text-xs font-semibold text-primary bg-primary/10 rounded-full px-3 py-1 w-fit">
-            {communityRequests.length} {t('openRequests')}
+            {processedCommunityRequests.length} {t('openRequests')}
           </span>
         </div>
 
@@ -737,9 +750,9 @@ export default function Rent() {
           <Loading />
         ) : communityRequestsError ? (
           <Card className="text-sm text-red-600">{t('firebaseError')}</Card>
-        ) : communityRequests.length > 0 ? (
+        ) : processedCommunityRequests.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {communityRequests.map((request) => (
+            {processedCommunityRequests.map((request) => (
               <Card key={request.id} className="flex flex-col gap-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">

@@ -2,7 +2,7 @@
 // Provider earnings overview: stats, completed jobs, and earnings breakdown.
 // 100% stored and calculated from Firebase Firestore. Zero localStorage.
 
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import {
   ArrowLeft,
   TrendingUp,
@@ -16,23 +16,20 @@ import {
   Wallet
 } from 'lucide-react';
 import { useTranslation } from '../../hooks/useTranslation';
+import { useAuth } from '../../context/AuthContext';
 import { useProviderProfile } from '../../hooks/services/useProviderProfile';
-import { useServiceProviders } from '../../hooks/services/useServiceProviders';
 import { useProviderRequests } from '../../hooks/services/useServiceRequests';
 import { SERVICE_CATEGORIES } from '../Services';
 
 export default function ProviderEarnings() {
   const { t } = useTranslation();
-  const [searchParams] = useSearchParams();
-
-  const { providers: allProviders, loading: allLoading } = useServiceProviders();
-  const urlProviderId = searchParams.get('providerId');
-  const activeProviderId = urlProviderId || (allProviders.length > 0 ? allProviders[0].id : null);
+  const { currentUser } = useAuth();
+  const activeProviderId = currentUser?.uid || null;
 
   const { provider, loading: profileLoading } = useProviderProfile(activeProviderId);
   const { requests, loading: requestsLoading } = useProviderRequests(activeProviderId);
 
-  const loading = allLoading || (activeProviderId && (profileLoading || requestsLoading));
+  const loading = activeProviderId && (profileLoading || requestsLoading);
 
   if (loading) {
     return (
@@ -42,7 +39,7 @@ export default function ProviderEarnings() {
     );
   }
 
-  const currentProvider = provider || allProviders[0];
+  const currentProvider = provider;
   const completedRequests = requests.filter((r) => r.status === 'completed');
   const pendingRequests = requests.filter((r) => r.status === 'pending');
   const acceptedRequests = requests.filter((r) => r.status === 'accepted');
@@ -66,7 +63,7 @@ export default function ProviderEarnings() {
         {/* Navigation */}
         <div className="mb-6">
           <Link
-            to={`/services/provider-dashboard?providerId=${currentProvider?.id || ''}`}
+            to="/services/provider-dashboard"
             className="inline-flex items-center text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors"
           >
             <ArrowLeft className="w-4 h-4 mr-1" />
