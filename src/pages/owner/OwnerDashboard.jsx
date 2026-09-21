@@ -5,7 +5,6 @@
 import { useEffect, useState } from 'react';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../firebase/firebase';
-import { DEMO_MODE } from '../../config/demo';
 import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from '../../hooks/useTranslation';
 import { Link } from 'react-router-dom';
@@ -19,6 +18,9 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import Loading from '../../components/Loading';
+import { calculatePlatformFee } from '../../utils/rentalFinance';
+import { getOwnerBookings } from '../../utils/ownerBookings';
+import PlatformFeePayment from '../../components/PlatformFeePayment';
 
 export default function OwnerDashboard() {
   const { currentUser } = useAuth();
@@ -41,20 +43,22 @@ export default function OwnerDashboard() {
         );
 
         // Fetch all owner bookings
-        const bookingsSnap = await getDocs(
-          DEMO_MODE
-            ? query(collection(db, 'bookings'))
-            : query(collection(db, 'bookings'), where('ownerId', '==', uid))
-        );
+        const ownerBookings = await getOwnerBookings(uid);
 
-        let pending = 0, active = 0, completed = 0, totalEarnings = 0;
-        bookingsSnap.forEach((doc) => {
-          const d = doc.data();
+        let pending = 0, active = 0, completed = 0, totalEarnings = 0, unpaidPlatformFees = 0;
+        const feeBookings = [];
+        ownerBookings.forEach((d) => {
           if (d.status === 'pending')   pending++;
           if (d.status === 'accepted')  active++;
           if (d.status === 'completed') {
             completed++;
-            totalEarnings += d.totalAmount || 0;
+            const grossAmount = Number(d.totalAmount) || 0;
+            const fee = Number(d.platformFee) || calculatePlatformFee(grossAmount);
+            totalEarnings += Number(d.ownerPayout) || Math.max(0, grossAmount - fee);
+            if (!d.platformFeePaid && d.platformFeePaymentStatus !== 'paid') {
+              unpaidPlatformFees += fee;
+              feeBookings.push({ ...d, platformFee: fee });
+            }
           }
         });
 
@@ -64,6 +68,8 @@ export default function OwnerDashboard() {
           active,
           completed,
           totalEarnings,
+          unpaidPlatformFees,
+          feeBookings,
         });
       } catch (err) {
         console.error('Dashboard fetch error:', err);
@@ -132,6 +138,28 @@ export default function OwnerDashboard() {
     },
   ];
 
+  const markFeePaid = (bookingId) => {
+    setStats((current) => {
+      const fee = current.feeBookings.find((booking) => booking.id === bookingId)?.platformFee || 0;
+      return {
+        ...current,
+        feeBookings: current.feeBookings.map((booking) => (
+          booking.id === bookingId
+            ? { ...booking, platformFeePaid: true, platformFeePaymentStatus: 'paid' }
+            : booking
+        )),
+        unpaidPlatformFees: Math.max(0, current.unpaidPlatformFees - fee),
+      };
+    });
+
+    window.setTimeout(() => {
+      setStats((current) => ({
+        ...current,
+        feeBookings: current.feeBookings.filter((booking) => booking.id !== bookingId),
+      }));
+    }, 1800);
+  };
+
   return (
     <div className="max-w-5xl mx-auto animate-slide-up">
       {/* Page header */}
@@ -196,6 +224,29 @@ export default function OwnerDashboard() {
           </Link>
         );
       })}
+
+      {stats.feeBookings.length > 0 && (
+        <section className="card p-5 mb-8 border-amber-200">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <div>
+              <h2 className="text-base font-semibold text-gray-900">Platform fee payment</h2>
+              <p className="text-sm text-gray-500">Pay the fee due for your completed rentals.</p>
+            </div>
+            <p className="text-xl font-bold text-amber-700">₹{stats.unpaidPlatformFees.toLocaleString()}</p>
+          </div>
+          <div className="space-y-3">
+            {stats.feeBookings.map((booking) => (
+              <PlatformFeePayment
+                key={booking.id}
+                bookingId={booking.id}
+                amount={booking.platformFee}
+                booking={booking}
+                onPaid={markFeePaid}
+              />
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Quick actions */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

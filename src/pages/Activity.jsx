@@ -24,6 +24,9 @@ import EmptyState from '../components/EmptyState';
 import Loading from '../components/Loading';
 import Button from '../components/Button';
 import ProblemReportModal, { canReportProblem, getProblemEventDate } from '../components/ProblemReportModal';
+import ReviewForm from '../components/ReviewForm';
+import TrustScore from '../components/TrustScore';
+import { submitReview } from '../utils/reviews';
 
 export default function Activity() {
   const { t } = useTranslation();
@@ -45,6 +48,9 @@ export default function Activity() {
   const [dueReminders, setDueReminders] = useState([]);
   const [reminderError, setReminderError] = useState(false);
   const [problemTransaction, setProblemTransaction] = useState(null);
+  const [reviewing, setReviewing] = useState({});
+  const [reviewed, setReviewed] = useState({});
+  const [reviewErrors, setReviewErrors] = useState({});
 
   // ── Fetch bookings ──────────────────────────────────────
   useEffect(() => {
@@ -79,7 +85,15 @@ export default function Activity() {
           // "Unknown item" cards; only show requests for current listings.
           if (!itemData) continue;
 
-          list.push({ id: bookingDoc.id, ...data, item: itemData });
+          let ownerProfile = null;
+          if (data.ownerId) {
+            try {
+              const ownerSnap = await getDoc(doc(db, 'users', data.ownerId));
+              if (ownerSnap.exists()) ownerProfile = ownerSnap.data();
+            } catch {}
+          }
+
+          list.push({ id: bookingDoc.id, ...data, item: itemData, ownerProfile });
         }
 
         list.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
@@ -93,6 +107,32 @@ export default function Activity() {
     };
     fetchBookings();
   }, [currentUser]);
+
+  const reviewOwner = async (booking, review) => {
+    setReviewing((current) => ({ ...current, [booking.id]: true }));
+    setReviewErrors((current) => ({ ...current, [booking.id]: '' }));
+    try {
+      await submitReview({
+        reviewerId: currentUser.uid,
+        reviewerName: currentUser.displayName || currentUser.email || 'Renter',
+        targetUserId: booking.ownerId,
+        targetRole: 'lender',
+        contextType: 'rental',
+        contextId: booking.id,
+        ...review,
+      });
+      setReviewed((current) => ({ ...current, [booking.id]: true }));
+    } catch (error) {
+      setReviewErrors((current) => ({
+        ...current,
+        [booking.id]: error.message === 'review-already-submitted'
+          ? 'You already reviewed this lender.'
+          : 'Unable to save review.',
+      }));
+    } finally {
+      setReviewing((current) => ({ ...current, [booking.id]: false }));
+    }
+  };
 
   // ── Return reminders ────────────────────────────────────
   const getDateValue = (dateValue) => {
@@ -469,6 +509,14 @@ export default function Activity() {
                     <h3 className="font-semibold text-gray-900 mb-4 line-clamp-2">
                       {booking.item?.name || t('unknownItem')}
                     </h3>
+                    {booking.ownerProfile && (
+                      <TrustScore
+                        rating={booking.ownerProfile.rating}
+                        trustScore={booking.ownerProfile.trustScore}
+                        reviewCount={booking.ownerProfile.reviewCount}
+                        compact
+                      />
+                    )}
 
                     <div className="flex flex-col gap-2 mt-auto text-sm text-gray-600">
                       <div className="flex items-center">
@@ -519,6 +567,15 @@ export default function Activity() {
                           {canReportProblem(booking, 'rental') ? 'Raise a Problem' : 'Problem window closed'}
                         </Button>
                       )}
+                      {['completed', 'done'].includes(booking.status) && !reviewed[booking.id] && (
+                        <ReviewForm
+                          targetName="the lender"
+                          onSubmit={(review) => reviewOwner(booking, review)}
+                          loading={reviewing[booking.id]}
+                        />
+                      )}
+                      {reviewed[booking.id] && <p className="text-sm text-emerald-700">Review saved. Thank you.</p>}
+                      {reviewErrors[booking.id] && <p className="text-sm text-red-600">{reviewErrors[booking.id]}</p>}
                     </div>
                   </div>
                 </Card>

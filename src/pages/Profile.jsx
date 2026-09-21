@@ -1,5 +1,5 @@
 // src/pages/Profile.jsx
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { LogOut, User, MapPin, Settings, Wrench, ArrowRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -7,12 +7,23 @@ import { useTranslation } from '../hooks/useTranslation';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import LanguageSelector from '../components/LanguageSelector';
+import { getDoc } from 'firebase/firestore';
+import { getUserRef } from '../firebase/collections';
+import TrustScore from '../components/TrustScore';
 
 export default function Profile() {
   const { currentUser, logout } = useAuth();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [profile, setProfile] = useState(null);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    getDoc(getUserRef(currentUser.uid))
+      .then((snapshot) => setProfile(snapshot.exists() ? snapshot.data() : null))
+      .catch(() => setProfile(null));
+  }, [currentUser]);
 
   const handleLogout = async () => {
     try {
@@ -52,6 +63,12 @@ export default function Profile() {
             
             <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
               <span className="badge badge-active">{t('customer')}</span>
+              <TrustScore
+                rating={profile?.rating}
+                trustScore={profile?.trustScore}
+                reviewCount={profile?.reviewCount}
+                compact
+              />
               <span className="flex items-center text-sm text-gray-500">
                 <MapPin className="w-4 h-4 mr-1" />
                 Location pending

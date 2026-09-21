@@ -124,6 +124,7 @@
   "statusAccepted": "Accepted",
   "statusRejected": "Rejected",
   "statusCompleted": "Completed",
+  "statusRescheduleRequested": "Reschedule Proposed",
   "statusCancelled": "Cancelled",
   "problemDescription": "Problem Description",
   "problemPlaceholder": "Describe your problem in detail...",

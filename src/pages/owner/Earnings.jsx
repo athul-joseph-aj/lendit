@@ -3,14 +3,7 @@
 // Shows total earnings, counts, and recent transactions computed from completed bookings.
 
 import { useEffect, useState } from 'react';
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-  doc,
-  getDoc,
-} from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../firebase/firebase';
 import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from '../../hooks/useTranslation';
@@ -24,6 +17,9 @@ import {
   IndianRupee,
 } from 'lucide-react';
 import Loading from '../../components/Loading';
+import { calculatePlatformFee } from '../../utils/rentalFinance';
+import { getOwnerBookings } from '../../utils/ownerBookings';
+import PlatformFeePayment from '../../components/PlatformFeePayment';
 
 function formatDate(ts) {
   if (!ts) return '—';
@@ -39,6 +35,9 @@ export default function Earnings() {
   const [error, setError] = useState('');
   const [stats, setStats] = useState({
     totalEarnings: 0,
+    grossEarnings: 0,
+    platformFees: 0,
+    unpaidPlatformFees: 0,
     completedCount: 0,
     pendingCount: 0,
     transactions: [],
@@ -49,21 +48,28 @@ export default function Earnings() {
 
     async function fetchEarnings() {
       try {
-        const snap = await getDocs(
-          query(collection(db, 'bookings'), where('ownerId', '==', currentUser.uid))
-        );
+        const ownerBookings = await getOwnerBookings(currentUser.uid);
 
         let totalEarnings = 0;
+        let grossEarnings = 0;
+        let platformFees = 0;
+        let unpaidPlatformFees = 0;
         let completedCount = 0;
         let pendingCount = 0;
         const completedBookings = [];
 
-        snap.forEach((d) => {
-          const data = d.data();
+        ownerBookings.forEach((data) => {
           if (data.status === 'completed') {
             completedCount++;
-            totalEarnings += data.totalAmount || 0;
-            completedBookings.push({ id: d.id, ...data });
+            const grossAmount = Number(data.totalAmount) || 0;
+            const fee = Number(data.platformFee) || calculatePlatformFee(grossAmount);
+            grossEarnings += grossAmount;
+            platformFees += fee;
+            if (!data.platformFeePaid && data.platformFeePaymentStatus !== 'paid') {
+              unpaidPlatformFees += fee;
+            }
+            totalEarnings += Number(data.ownerPayout) || Math.max(0, grossAmount - fee);
+            completedBookings.push(data);
           } else if (data.status === 'pending' || data.status === 'accepted') {
             pendingCount++;
           }
@@ -95,7 +101,7 @@ export default function Earnings() {
           })
         );
 
-        setStats({ totalEarnings, completedCount, pendingCount, transactions });
+        setStats({ totalEarnings, grossEarnings, platformFees, unpaidPlatformFees, completedCount, pendingCount, transactions });
       } catch (err) {
         console.error('Earnings fetch error:', err);
         setError('Failed to load earnings. Please try refreshing.');
@@ -146,6 +152,22 @@ export default function Earnings() {
     },
   ];
 
+  const markPlatformFeePaid = (bookingId) => {
+    setStats((current) => {
+      const transaction = current.transactions.find((entry) => entry.id === bookingId);
+      const fee = Number(transaction?.platformFee) || calculatePlatformFee(transaction?.totalAmount);
+      return {
+        ...current,
+        unpaidPlatformFees: Math.max(0, current.unpaidPlatformFees - fee),
+        transactions: current.transactions.map((entry) => (
+          entry.id === bookingId
+            ? { ...entry, platformFeePaid: true, platformFeePaymentStatus: 'paid' }
+            : entry
+        )),
+      };
+    });
+  };
+
   return (
     <div className="max-w-4xl mx-auto animate-slide-up">
       {/* Header */}
@@ -192,6 +214,14 @@ export default function Earnings() {
             <p className="text-xs text-green-700 mb-1">Total completed</p>
             <p className="text-xl font-bold text-green-600">{stats.completedCount}</p>
           </div>
+          <div className="bg-amber-50 rounded-xl p-4">
+            <p className="text-xs text-amber-700 mb-1">Platform fee (5%)</p>
+            <p className="text-xl font-bold text-amber-600">₹{stats.platformFees.toLocaleString()}</p>
+          </div>
+          <div className="bg-red-50 rounded-xl p-4">
+            <p className="text-xs text-red-700 mb-1">Fee to pay</p>
+            <p className="text-xl font-bold text-red-600">₹{stats.unpaidPlatformFees.toLocaleString()}</p>
+          </div>
         </div>
       </div>
 
@@ -211,26 +241,36 @@ export default function Earnings() {
         ) : (
           <div className="divide-y divide-gray-100">
             {stats.transactions.map((tx) => (
-              <div key={tx.id} className="px-5 py-4 flex items-center gap-4 hover:bg-gray-50 transition-colors">
-                {/* Icon */}
-                <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
-                  <Package className="w-4 h-4 text-emerald-600" />
-                </div>
+              <div key={tx.id} className="hover:bg-gray-50 transition-colors">
+                <div className="px-5 py-4 flex items-center gap-4">
+                  {/* Icon */}
+                  <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
+                    <Package className="w-4 h-4 text-emerald-600" />
+                  </div>
 
-                {/* Details */}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-gray-900 truncate">{tx.itemName}</p>
-                  <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
-                    <Calendar className="w-3 h-3" />
-                    {formatDate(tx.createdAt)}
-                    {tx.renterName && <> · {tx.renterName}</>}
-                  </p>
-                </div>
+                  {/* Details */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-900 truncate">{tx.itemName}</p>
+                    <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
+                      <Calendar className="w-3 h-3" />
+                      {formatDate(tx.createdAt)}
+                      {tx.renterName && <> · {tx.renterName}</>}
+                    </p>
+                  </div>
 
-                {/* Amount */}
-                <div className="text-right shrink-0">
-                  <p className="text-sm font-bold text-emerald-600">+₹{tx.totalAmount?.toLocaleString()}</p>
-                  <span className="badge-done text-xs">{t('completed')}</span>
+                  {/* Amount */}
+                  <div className="text-right shrink-0">
+                    <p className="text-sm font-bold text-emerald-600">+₹{(tx.ownerPayout ?? (tx.totalAmount - (tx.platformFee || calculatePlatformFee(tx.totalAmount)))).toLocaleString()}</p>
+                    <span className="badge-done text-xs">{t('completed')}</span>
+                  </div>
+                </div>
+                <div className="px-5 pb-4">
+                  <PlatformFeePayment
+                    bookingId={tx.id}
+                    amount={tx.platformFee || calculatePlatformFee(tx.totalAmount)}
+                    booking={tx}
+                    onPaid={markPlatformFeePaid}
+                  />
                 </div>
               </div>
             ))}

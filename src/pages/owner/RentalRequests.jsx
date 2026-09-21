@@ -4,10 +4,6 @@
 
 import { useEffect, useState } from 'react';
 import {
-  collection,
-  query,
-  where,
-  onSnapshot,
   updateDoc,
   doc,
   getDoc,
@@ -25,6 +21,8 @@ import {
   Loader2,
 } from 'lucide-react';
 import Loading from '../../components/Loading';
+import TrustScore from '../../components/TrustScore';
+import { subscribeToOwnerBookings } from '../../utils/ownerBookings';
 
 function formatDate(ts) {
   if (!ts) return '—';
@@ -51,6 +49,9 @@ export default function RentalRequests() {
       id: bookingId,
       ...data,
       renterName: renterProfile.name || renterProfile.displayName || renterProfile.email || data.renterName || data.renterEmail || t('renter'),
+      renterRating: renterProfile.rating || 0,
+      renterTrustScore: renterProfile.trustScore,
+      renterReviewCount: renterProfile.reviewCount || 0,
       itemName:   itemSnap?.exists()   ? itemSnap.data().name : data.itemName || data.itemId,
       itemLocation: itemSnap?.exists() ? itemSnap.data().location : data.itemLocation,
     };
@@ -59,15 +60,8 @@ export default function RentalRequests() {
   // ── Real-time listener for pending bookings ──────────────
   useEffect(() => {
     if (!currentUser) return;
-    const q = query(
-      collection(db, 'bookings'),
-      where('ownerId', '==', currentUser.uid),
-      where('status', '==', 'pending')
-    );
-    const unsub = onSnapshot(q, async (snap) => {
-      const enriched = await Promise.all(
-        snap.docs.map((d) => enrichBooking(d.id, d.data()))
-      );
+    const unsub = subscribeToOwnerBookings(currentUser.uid, ['pending'], async (bookings) => {
+      const enriched = await Promise.all(bookings.map((booking) => enrichBooking(booking.id, booking)));
       enriched.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
       setRequests(enriched);
       setLoading(false);
@@ -82,7 +76,10 @@ export default function RentalRequests() {
   const updateStatus = async (bookingId, status) => {
     setActionLoading((prev) => ({ ...prev, [bookingId]: status }));
     try {
-      await updateDoc(doc(db, 'bookings', bookingId), { status });
+      await updateDoc(doc(db, 'bookings', bookingId), {
+        status,
+        ...(status === 'accepted' ? { acceptedAt: new Date() } : {}),
+      });
     } catch (err) {
       console.error('Update status error:', err);
     } finally {
@@ -130,6 +127,12 @@ export default function RentalRequests() {
                   <div className="min-w-0">
                     <p className="text-xs text-gray-400">{t('renter')}</p>
                     <p className="text-sm font-semibold text-gray-900 truncate">{req.renterName}</p>
+                    <TrustScore
+                      rating={req.renterRating}
+                      trustScore={req.renterTrustScore}
+                      reviewCount={req.renterReviewCount}
+                      compact
+                    />
                   </div>
                 </div>
 

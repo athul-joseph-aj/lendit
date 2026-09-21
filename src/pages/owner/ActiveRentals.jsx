@@ -5,16 +5,14 @@
 
 import { useEffect, useState } from 'react';
 import {
-  collection,
-  query,
-  where,
-  onSnapshot,
   updateDoc,
   doc,
   getDoc,
   serverTimestamp,
+  Timestamp,
 } from 'firebase/firestore';
 import { db } from '../../firebase/firebase';
+import { getBookingContactRef } from '../../firebase/collections';
 import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from '../../hooks/useTranslation';
 import {
@@ -26,6 +24,11 @@ import {
   Loader2,
 } from 'lucide-react';
 import Loading from '../../components/Loading';
+import ReviewForm from '../../components/ReviewForm';
+import { submitReview } from '../../utils/reviews';
+import { calculatePlatformFee, PLATFORM_FEE_DUE_DAYS } from '../../utils/rentalFinance';
+import TrustScore from '../../components/TrustScore';
+import { subscribeToOwnerBookings } from '../../utils/ownerBookings';
 
 function formatDate(ts) {
   if (!ts) return '—';
@@ -40,31 +43,39 @@ export default function ActiveRentals() {
   const [rentals, setRentals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [completing, setCompleting] = useState({});
+  const [reviewing, setReviewing] = useState({});
+  const [reviewed, setReviewed] = useState({});
+  const [reviewErrors, setReviewErrors] = useState({});
 
   // Enrich booking with renter & item names
   const enrich = async (id, data) => {
-    const [renterSnap, itemSnap] = await Promise.all([
+    const [renterSnap, itemSnap, contactSnap] = await Promise.all([
       data.renterId ? getDoc(doc(db, 'users', data.renterId)) : Promise.resolve(null),
       data.itemId   ? getDoc(doc(db, 'items', data.itemId))   : Promise.resolve(null),
+      ['accepted', 'completed'].includes(data.status)
+        ? getDoc(getBookingContactRef(id))
+        : Promise.resolve(null),
     ]);
     const renterProfile = renterSnap?.exists() ? renterSnap.data() : {};
+    const privateContact = contactSnap?.exists() ? contactSnap.data() : {};
     return {
       id,
       ...data,
       renterName: renterProfile.name || renterProfile.displayName || renterProfile.email || data.renterName || data.renterEmail || t('renter'),
+      renterRating: renterProfile.rating || 0,
+      renterTrustScore: renterProfile.trustScore,
+      renterReviewCount: renterProfile.reviewCount || 0,
+      renterPhone: privateContact.renterPhone || '',
       itemName:   itemSnap?.exists()   ? itemSnap.data().name : data.itemId,
     };
   };
 
   useEffect(() => {
     if (!currentUser) return;
-    const q = query(
-      collection(db, 'bookings'),
-      where('ownerId', '==', currentUser.uid),
-      where('status', '==', 'accepted')
-    );
-    const unsub = onSnapshot(q, async (snap) => {
-      const enriched = await Promise.all(snap.docs.map((d) => enrich(d.id, d.data())));
+    const unsub = subscribeToOwnerBookings(currentUser.uid, ['accepted', 'completed'], async (bookings) => {
+      const enriched = await Promise.all(
+        bookings.map((booking) => enrich(booking.id, booking))
+      );
       enriched.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
       setRentals(enriched);
       setLoading(false);
@@ -78,14 +89,48 @@ export default function ActiveRentals() {
   const markCompleted = async (bookingId) => {
     setCompleting((prev) => ({ ...prev, [bookingId]: true }));
     try {
+      const rental = rentals.find((entry) => entry.id === bookingId);
+      const platformFee = calculatePlatformFee(rental?.totalAmount);
       await updateDoc(doc(db, 'bookings', bookingId), {
         status: 'completed',
         completedAt: serverTimestamp(),
+        platformFee,
+        ownerPayout: Math.max(0, (rental?.totalAmount || 0) - platformFee),
+        platformFeeRate: 0.05,
+        platformFeePaid: false,
+        platformFeePaymentStatus: 'unpaid',
+        platformFeeDueAt: Timestamp.fromMillis(Timestamp.now().toMillis() + PLATFORM_FEE_DUE_DAYS * 24 * 60 * 60 * 1000),
       });
     } catch (err) {
       console.error('Mark completed error:', err);
     } finally {
       setCompleting((prev) => ({ ...prev, [bookingId]: false }));
+    }
+  };
+
+  const reviewRenter = async (rental, review) => {
+    setReviewing((current) => ({ ...current, [rental.id]: true }));
+    setReviewErrors((current) => ({ ...current, [rental.id]: '' }));
+    try {
+      await submitReview({
+        reviewerId: currentUser.uid,
+        reviewerName: currentUser.displayName || currentUser.email || 'Lender',
+        targetUserId: rental.renterId,
+        targetRole: 'renter',
+        contextType: 'rental',
+        contextId: rental.id,
+        ...review,
+      });
+      setReviewed((current) => ({ ...current, [rental.id]: true }));
+    } catch (error) {
+      setReviewErrors((current) => ({
+        ...current,
+        [rental.id]: error.message === 'review-already-submitted'
+          ? 'You already reviewed this renter.'
+          : 'Unable to save review.',
+      }));
+    } finally {
+      setReviewing((current) => ({ ...current, [rental.id]: false }));
     }
   };
 
@@ -136,11 +181,22 @@ export default function ActiveRentals() {
                   <div className="min-w-0">
                     <p className="text-xs text-gray-400">{t('renter')}</p>
                     <p className="text-sm font-semibold text-gray-900 truncate">{rental.renterName}</p>
+                    <TrustScore
+                      rating={rental.renterRating}
+                      trustScore={rental.renterTrustScore}
+                      reviewCount={rental.renterReviewCount}
+                      compact
+                    />
+                    {['accepted', 'completed'].includes(rental.status) && rental.renterPhone && (
+                      <p className="text-xs text-emerald-700 mt-1">Phone: {rental.renterPhone}</p>
+                    )}
                   </div>
                 </div>
 
                 <div className="ml-auto">
-                  <span className="badge-active">{t('accepted')}</span>
+                  <span className={rental.status === 'completed' ? 'badge-done' : 'badge-active'}>
+                    {rental.status === 'completed' ? t('completed') : t('accepted')}
+                  </span>
                 </div>
               </div>
 
@@ -168,21 +224,50 @@ export default function ActiveRentals() {
                 </div>
               </div>
 
+              {rental.status === 'completed' && (
+                <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-amber-800">Platform fee (5%)</span>
+                    <span className="font-semibold text-amber-900">₹{(rental.platformFee || calculatePlatformFee(rental.totalAmount)).toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between mt-1">
+                    <span className="text-amber-800">Your payout</span>
+                    <span className="font-bold text-emerald-700">₹{(rental.ownerPayout ?? ((rental.totalAmount || 0) - calculatePlatformFee(rental.totalAmount))).toLocaleString()}</span>
+                  </div>
+                </div>
+              )}
+
+              {['accepted', 'completed'].includes(rental.status) && rental.renterPhone && (
+                <p className="text-xs text-gray-500 mb-3">Renter phone is visible because you accepted this request.</p>
+              )}
+
               {/* Mark complete button */}
-              <button
-                onClick={() => markCompleted(rental.id)}
-                disabled={busy}
-                className="w-full btn btn-md bg-green-500 hover:bg-green-600 text-white gap-2"
-              >
-                {busy ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <>
-                    <CheckCircle className="w-4 h-4" />
-                    {t('markCompleted')}
-                  </>
-                )}
-              </button>
+              {rental.status === 'accepted' && (
+                <button
+                  onClick={() => markCompleted(rental.id)}
+                  disabled={busy}
+                  className="w-full btn btn-md bg-green-500 hover:bg-green-600 text-white gap-2"
+                >
+                  {busy ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <>
+                      <CheckCircle className="w-4 h-4" />
+                      {t('markCompleted')} — 5% platform fee recorded
+                    </>
+                  )}
+                </button>
+              )}
+
+              {rental.status === 'completed' && !reviewed[rental.id] && (
+                <ReviewForm
+                  targetName={rental.renterName}
+                  onSubmit={(review) => reviewRenter(rental, review)}
+                  loading={reviewing[rental.id]}
+                />
+              )}
+              {reviewed[rental.id] && <p className="mt-3 text-sm text-emerald-700">Review saved. Thank you.</p>}
+              {reviewErrors[rental.id] && <p className="mt-2 text-sm text-red-600">{reviewErrors[rental.id]}</p>}
             </div>
           );
         })}

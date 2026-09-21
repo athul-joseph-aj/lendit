@@ -1,6 +1,7 @@
 // src/pages/services/ProviderProfile.jsx
 // Full provider profile with reviews section and Request Service button.
 
+import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, MapPin, Clock, BadgeCheck,
@@ -11,6 +12,9 @@ import { useAuth } from '../../context/AuthContext';
 import { useProviderProfile } from '../../hooks/services/useProviderProfile';
 import StarRating from '../../components/services/StarRating';
 import Loading from '../../components/Loading';
+import TrustScore from '../../components/TrustScore';
+import { getDocs, query, where } from 'firebase/firestore';
+import { reviewsCol } from '../../firebase/collections';
 
 const DAY_KEYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
@@ -21,6 +25,19 @@ export default function ProviderProfile() {
   const navigate = useNavigate();
 
   const { provider, loading, error } = useProviderProfile(providerId);
+  const [reviews, setReviews] = useState([]);
+
+  useEffect(() => {
+    if (!providerId) return;
+    getDocs(query(reviewsCol, where('targetUserId', '==', providerId)))
+      .then((snapshot) => {
+        const nextReviews = snapshot.docs
+          .map((reviewDoc) => ({ id: reviewDoc.id, ...reviewDoc.data() }))
+          .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+        setReviews(nextReviews);
+      })
+      .catch(() => setReviews([]));
+  }, [providerId]);
 
   const handleRequestService = () => {
     if (!currentUser) {
@@ -50,7 +67,7 @@ export default function ProviderProfile() {
   }
 
   const {
-    name, services = [], customServiceName = '', experience = 0, rating = 0, reviewCount = 0,
+    name, services = [], customServiceName = '', experience = 0, rating = 0, reviewCount = 0, trustScore,
     location = '', startingPrice = 0, isAvailable = false,
     profileImage = '', about = '', phone = '',
     availability = [],
@@ -117,6 +134,7 @@ export default function ProviderProfile() {
                   <span className="text-sm text-gray-400">({reviewCount} {t('reviews')})</span>
                 )}
               </div>
+              <TrustScore rating={rating} trustScore={trustScore} reviewCount={reviewCount} />
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
                 <div className="flex items-center gap-2 text-gray-600">
@@ -207,18 +225,19 @@ export default function ProviderProfile() {
               {t('reviews')} {reviewCount > 0 && `(${reviewCount})`}
             </span>
           </h2>
-          {reviewCount === 0 ? (
+          {reviews.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-6">{t('noReviews')}</p>
           ) : (
             <div className="space-y-3">
-              {/* Future: map actual reviews */}
-              <div className="p-3 bg-gray-50 rounded-lg">
-                <div className="flex items-center gap-2 mb-1">
-                  <StarRating rating={5} />
-                  <span className="text-xs text-gray-400">2 days ago</span>
+              {reviews.slice(0, 6).map((review) => (
+                <div key={review.id} className="p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center gap-2 mb-1">
+                    <StarRating rating={review.rating} />
+                    <span className="text-xs text-gray-500">{review.reviewerName || 'LendIt user'}</span>
+                  </div>
+                  {review.comment && <p className="text-sm text-gray-600">{review.comment}</p>}
                 </div>
-                <p className="text-sm text-gray-600">Great service! Very professional and on time.</p>
-              </div>
+              ))}
             </div>
           )}
         </div>

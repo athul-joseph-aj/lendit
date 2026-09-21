@@ -17,6 +17,7 @@ export const COLLECTIONS = {
   SERVICE_PROVIDERS: 'serviceProviders',
   SERVICE_REQUESTS:  'serviceRequests',
   PROBLEM_REPORTS:   'problemReports',
+  REVIEWS:           'reviews',
 };
 
 // ── Collection references ─────────────────────────────────────────────────
@@ -27,11 +28,13 @@ export const itemRequestsCol     = collection(db, COLLECTIONS.ITEM_REQUESTS);
 export const serviceProvidersCol = collection(db, COLLECTIONS.SERVICE_PROVIDERS);
 export const serviceRequestsCol  = collection(db, COLLECTIONS.SERVICE_REQUESTS);
 export const problemReportsCol   = collection(db, COLLECTIONS.PROBLEM_REPORTS);
+export const reviewsCol          = collection(db, COLLECTIONS.REVIEWS);
 
 // ── Document reference helpers ────────────────────────────────────────────
 export const getUserRef            = (userId)     => doc(db, COLLECTIONS.USERS,             userId);
 export const getItemRef            = (itemId)     => doc(db, COLLECTIONS.ITEMS,             itemId);
 export const getBookingRef         = (bookingId)  => doc(db, COLLECTIONS.BOOKINGS,          bookingId);
+export const getBookingContactRef  = (bookingId)  => doc(db, COLLECTIONS.BOOKINGS,          bookingId, 'private', 'contact');
 export const getItemRequestRef     = (requestId)  => doc(db, COLLECTIONS.ITEM_REQUESTS,     requestId);
 export const getItemRequestOffersCol = (requestId) => collection(db, COLLECTIONS.ITEM_REQUESTS, requestId, 'offers');
 export const getProviderRef        = (providerId) => doc(db, COLLECTIONS.SERVICE_PROVIDERS, providerId);

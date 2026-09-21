@@ -25,11 +25,14 @@ import { useMyServiceRequests } from '../../hooks/services/useServiceRequests';
 import RequestStatusBadge from '../../components/services/RequestStatusBadge';
 import { SERVICE_CATEGORIES } from '../Services';
 import ProblemReportModal, { canReportProblem, getProblemEventDate } from '../../components/ProblemReportModal';
+import ReviewForm from '../../components/ReviewForm';
+import { submitReview } from '../../utils/reviews';
 
 const TABS = [
   { id: 'all', labelKey: 'all' },
   { id: 'pending', labelKey: 'pending' },
   { id: 'accepted', labelKey: 'accepted' },
+  { id: 'reschedule_requested', labelKey: 'statusRescheduleRequested' },
   { id: 'completed', labelKey: 'completed' },
   { id: 'cancelled', labelKey: 'cancelled' },
   { id: 'rejected', labelKey: 'rejected' },
@@ -50,6 +53,9 @@ export default function MyRequests() {
   const [cancellingId, setCancellingId] = useState(null);
   const [cancelError, setCancelError] = useState('');
   const [problemTransaction, setProblemTransaction] = useState(null);
+  const [reviewing, setReviewing] = useState({});
+  const [reviewed, setReviewed] = useState({});
+  const [reviewErrors, setReviewErrors] = useState({});
 
   const filteredRequests = requests.filter((req) => {
     if (activeTab === 'all') return true;
@@ -80,6 +86,60 @@ export default function MyRequests() {
       setCancelError(err.message || 'Failed to cancel request');
     } finally {
       setCancellingId(null);
+    }
+  };
+
+  const respondToReschedule = async (request, accepted) => {
+    setCancellingId(request.id);
+    setCancelError('');
+    try {
+      const reqRef = doc(db, 'serviceRequests', request.id);
+      await updateDoc(reqRef, accepted
+        ? {
+            date: request.proposedDate,
+            time: request.proposedTime,
+            status: 'accepted',
+            rescheduleStatus: 'accepted',
+            rescheduleRespondedAt: new Date(),
+            updatedAt: new Date(),
+          }
+        : {
+            status: 'cancelled',
+            rescheduleStatus: 'declined',
+            rescheduleRespondedAt: new Date(),
+            updatedAt: new Date(),
+          });
+    } catch (err) {
+      console.error('Error responding to service reschedule:', err);
+      setCancelError(err.message || 'Unable to update the appointment time.');
+    } finally {
+      setCancellingId(null);
+    }
+  };
+
+  const reviewProvider = async (request, review) => {
+    setReviewing((current) => ({ ...current, [request.id]: true }));
+    setReviewErrors((current) => ({ ...current, [request.id]: '' }));
+    try {
+      await submitReview({
+        reviewerId: currentUser.uid,
+        reviewerName: currentUser.displayName || currentUser.email || 'Customer',
+        targetUserId: request.providerId,
+        targetRole: 'serviceProvider',
+        contextType: 'service',
+        contextId: request.id,
+        ...review,
+      });
+      setReviewed((current) => ({ ...current, [request.id]: true }));
+    } catch (error) {
+      setReviewErrors((current) => ({
+        ...current,
+        [request.id]: error.message === 'review-already-submitted'
+          ? 'You already reviewed this provider.'
+          : 'Unable to save review.',
+      }));
+    } finally {
+      setReviewing((current) => ({ ...current, [request.id]: false }));
     }
   };
 
@@ -311,6 +371,34 @@ export default function MyRequests() {
                         ₹{req.estimatedBudget}
                       </div>
                     )}
+
+                    {req.status === 'reschedule_requested' && (
+                      <div className="rounded-xl border border-purple-200 bg-purple-50 p-4 text-sm text-purple-900 space-y-2">
+                        <p className="font-semibold">The provider is unavailable at your requested time.</p>
+                        <p>
+                          Proposed time: <span className="font-semibold">{req.proposedDate} at {req.proposedTime}</span>
+                        </p>
+                        {req.rescheduleMessage && <p className="text-purple-800">{req.rescheduleMessage}</p>}
+                        <div className="flex flex-wrap gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => respondToReschedule(req, true)}
+                            disabled={cancellingId === req.id}
+                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-white bg-[#4682B4] hover:bg-[#3b6f9a] disabled:opacity-50"
+                          >
+                            Accept new time
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => respondToReschedule(req, false)}
+                            disabled={cancellingId === req.id}
+                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-red-600 border border-red-200 hover:bg-red-50 disabled:opacity-50"
+                          >
+                            Decline and cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Card Actions */}
@@ -346,6 +434,15 @@ export default function MyRequests() {
                       </button>
                     </div>
                   )}
+                  {req.status === 'completed' && !reviewed[req.id] && req.providerId && (
+                    <ReviewForm
+                      targetName={req.providerName || 'the service provider'}
+                      onSubmit={(review) => reviewProvider(req, review)}
+                      loading={reviewing[req.id]}
+                    />
+                  )}
+                  {reviewed[req.id] && <p className="pt-3 text-sm text-emerald-700">Review saved. Thank you.</p>}
+                  {reviewErrors[req.id] && <p className="pt-2 text-sm text-red-600">{reviewErrors[req.id]}</p>}
                 </div>
               );
             })}

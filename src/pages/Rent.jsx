@@ -2,8 +2,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, MapPin, PackageOpen, Calendar, Package, CheckCircle2 } from 'lucide-react';
-import { getDocs, query, where, addDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
-import { itemsCol, bookingsCol, itemRequestsCol, getItemRequestOffersCol } from '../firebase/collections';
+import { getDocs, query, where, addDoc, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore';
+import { itemsCol, bookingsCol, itemRequestsCol, getItemRequestOffersCol, getBookingContactRef } from '../firebase/collections';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../hooks/useTranslation';
 import Card from '../components/Card';
@@ -12,6 +12,7 @@ import Button from '../components/Button';
 import Loading from '../components/Loading';
 import Modal from '../components/Modal';
 import RentalItemCard from '../components/RentalItemCard';
+import { calculateRentalFinancials } from '../utils/rentalFinance';
 
 const normalizeLocation = (value) => String(value || '').trim().toLowerCase();
 
@@ -24,6 +25,7 @@ function RentalRequestModal({ isOpen, onClose, item }) {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [pickupOption, setPickupOption] = useState('pickup');
+  const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
@@ -45,6 +47,7 @@ function RentalRequestModal({ isOpen, onClose, item }) {
     setStartDate('');
     setEndDate('');
     setPickupOption('pickup');
+    setPhone('');
     setError('');
     setSuccess(false);
     onClose();
@@ -53,6 +56,7 @@ function RentalRequestModal({ isOpen, onClose, item }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!currentUser) { setError(t('authRequired')); return; }
+    if (!phone.trim()) { setError('Please provide your phone number so the owner can contact you after accepting.'); return; }
     if (!startDate || !endDate) { setError(t('missingDates')); return; }
     const s = new Date(startDate);
     const e2 = new Date(endDate);
@@ -62,7 +66,8 @@ function RentalRequestModal({ isOpen, onClose, item }) {
     try {
       setLoading(true);
       setError('');
-      await addDoc(bookingsCol, {
+      const financials = calculateRentalFinancials({ rentalCost, securityDeposit });
+      const bookingRef = await addDoc(bookingsCol, {
         itemId: item.id,
         itemName: item.name,
         itemLocation: item.location || '',
@@ -74,10 +79,13 @@ function RentalRequestModal({ isOpen, onClose, item }) {
         endDate: e2,
         durationDays: diffDays,
         pickupOption,
-        rentalCost,
-        securityDeposit,
-        totalAmount,
+        ...financials,
         status: 'pending',
+        createdAt: serverTimestamp(),
+      });
+      await setDoc(getBookingContactRef(bookingRef.id), {
+        renterId: currentUser.uid,
+        renterPhone: phone.trim(),
         createdAt: serverTimestamp(),
       });
       setSuccess(true);
@@ -167,6 +175,16 @@ function RentalRequestModal({ isOpen, onClose, item }) {
               <option value="delivery">{t('delivery')}</option>
             </select>
           </div>
+
+          <Input
+            label={t('phone')}
+            type="tel"
+            required
+            value={phone}
+            onChange={(event) => setPhone(event.target.value)}
+            placeholder="Phone number for the owner after acceptance"
+          />
+          <p className="text-xs text-gray-500 -mt-3">Your phone number stays private until the owner accepts this request.</p>
 
           {/* Price breakdown */}
           <div className="bg-gray-50 rounded-lg p-4 border border-gray-100 space-y-2.5">

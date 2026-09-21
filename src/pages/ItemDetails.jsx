@@ -1,8 +1,8 @@
 // src/pages/ItemDetails.jsx
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getDoc, addDoc, serverTimestamp } from 'firebase/firestore';
-import { getItemRef, getUserRef, bookingsCol } from '../firebase/collections';
+import { getDoc, addDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { getItemRef, getUserRef, bookingsCol, getBookingContactRef } from '../firebase/collections';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../hooks/useTranslation';
 import { MapPin, Star, Calendar, ShieldCheck, User } from 'lucide-react';
@@ -10,6 +10,8 @@ import Card from '../components/Card';
 import Button from '../components/Button';
 import Loading from '../components/Loading';
 import Input from '../components/Input';
+import { calculateRentalFinancials } from '../utils/rentalFinance';
+import TrustScore from '../components/TrustScore';
 
 export default function ItemDetails() {
   const { itemId } = useParams();
@@ -23,11 +25,13 @@ export default function ItemDetails() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [ownerName, setOwnerName] = useState('');
+  const [ownerProfile, setOwnerProfile] = useState(null);
   const [selectedImage, setSelectedImage] = useState(0);
 
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [preference, setPreference] = useState('pickup'); // 'pickup' or 'delivery'
+  const [phone, setPhone] = useState('');
 
   useEffect(() => {
     const fetchItem = async () => {
@@ -44,6 +48,7 @@ export default function ItemDetails() {
               const ownerSnap = await getDoc(getUserRef(itemData.ownerId));
               if (ownerSnap.exists()) {
                 const ownerData = ownerSnap.data();
+                setOwnerProfile(ownerData);
                 setOwnerName(ownerData.name || ownerData.displayName || itemData.ownerId);
               }
             } catch {
@@ -85,6 +90,11 @@ export default function ItemDetails() {
       return;
     }
 
+    if (!phone.trim()) {
+      setError('Please provide your phone number so the owner can contact you after accepting.');
+      return;
+    }
+
     if (!startDate || !endDate) {
       setError(t('missingDates'));
       return;
@@ -105,8 +115,12 @@ export default function ItemDetails() {
     try {
       setBookingLoading(true);
       setError('');
+      const financials = calculateRentalFinancials({
+        rentalCost,
+        securityDeposit: item.securityDeposit,
+      });
       
-      await addDoc(bookingsCol, {
+      const bookingRef = await addDoc(bookingsCol, {
         itemId: item.id,
         itemName: item.name,
         itemLocation: item.location || '',
@@ -118,11 +132,14 @@ export default function ItemDetails() {
         endDate: end,
         durationDays: diffDays,
         pickupOption: preference,
-        rentalCost,
-        totalAmount,
-        securityDeposit: item.securityDeposit,
+        ...financials,
         status: 'pending',
         createdAt: serverTimestamp()
+      });
+      await setDoc(getBookingContactRef(bookingRef.id), {
+        renterId: currentUser.uid,
+        renterPhone: phone.trim(),
+        createdAt: serverTimestamp(),
       });
       
       setSuccess(true);
@@ -213,6 +230,14 @@ export default function ItemDetails() {
               <div>
                 <p className="text-sm text-gray-500">{t('ownedBy')}</p>
                 <p className="font-semibold text-gray-900">{ownerName || t('owner')}</p>
+                {ownerProfile && (
+                  <TrustScore
+                    rating={ownerProfile.rating}
+                    trustScore={ownerProfile.trustScore}
+                    reviewCount={ownerProfile.reviewCount}
+                    compact
+                  />
+                )}
               </div>
             </div>
           </div>
@@ -276,6 +301,16 @@ export default function ItemDetails() {
                     <option value="delivery">{t('delivery')}</option>
                   </select>
                 </div>
+
+                <Input
+                  label={t('phone')}
+                  type="tel"
+                  required
+                  value={phone}
+                  onChange={(event) => setPhone(event.target.value)}
+                  placeholder="Phone number for the owner after acceptance"
+                />
+                <p className="text-xs text-gray-500 -mt-3">Your phone number stays private until the owner accepts this request.</p>
                 
                 {/* Detailed Rental Calculator */}
                 <div className="bg-gray-50 rounded-lg p-4 border border-gray-100 mt-6 space-y-3">
