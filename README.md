@@ -46,7 +46,6 @@ Google AI is not currently used at runtime or as a project dependency. This is d
 ## Links
 
 - **GitHub repository:** [athul-joseph-aj/lendit](https://github.com/athul-joseph-aj/lendit)
-- **Live application:** [lendit-peach.vercel.app](https://lendit-peach.vercel.app/)
 
 ## Proof of Google AI Usage
 
@@ -54,13 +53,11 @@ The `/proofs` folder contains the current disclosure about Google AI usage. Ther
 
 ## Screenshots
 
-Place project screenshots in the `/screenshots` folder. A short guide is included at [`screenshots/README.md`](screenshots/README.md).
+https://drive.google.com/drive/folders/1u7fDk6dtMgr_7VvHmWAXDUZAOZrT1OaW?usp=drive_link
 
 ## Demo Video
 
-Upload a demo video of up to three minutes to Google Drive, enable link sharing, and replace the placeholder below with the shareable URL:
-
-**Watch Demo:** `[Add Google Drive demo link]`
+https://drive.google.com/drive/folders/12TgxDR9E3o_4wT4dtUmO1mEn5JyE5nkm?usp=sharing
 
 ## Installation Steps
 
