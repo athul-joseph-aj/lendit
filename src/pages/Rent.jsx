@@ -720,7 +720,7 @@ export default function Rent() {
       </Card>
 
       {/* Community requests — visible to every visitor while open */}
-      <section className="mb-8" aria-labelledby="community-requests-heading">
+      <section className="order-last mt-12 pt-10 border-t border-gray-200" aria-labelledby="community-requests-heading">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 mb-4">
           <div>
             <h2 id="community-requests-heading" className="text-xl font-bold text-gray-900">
