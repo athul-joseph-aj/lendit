@@ -12,6 +12,7 @@ import {
   updateDoc,
   doc,
   getDoc,
+  serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../../firebase/firebase';
 import { useAuth } from '../../context/AuthContext';
@@ -46,10 +47,11 @@ export default function ActiveRentals() {
       data.renterId ? getDoc(doc(db, 'users', data.renterId)) : Promise.resolve(null),
       data.itemId   ? getDoc(doc(db, 'items', data.itemId))   : Promise.resolve(null),
     ]);
+    const renterProfile = renterSnap?.exists() ? renterSnap.data() : {};
     return {
       id,
       ...data,
-      renterName: renterSnap?.exists() ? renterSnap.data().name || renterSnap.data().email : data.renterId,
+      renterName: renterProfile.name || renterProfile.displayName || renterProfile.email || data.renterName || data.renterEmail || t('renter'),
       itemName:   itemSnap?.exists()   ? itemSnap.data().name : data.itemId,
     };
   };
@@ -76,7 +78,10 @@ export default function ActiveRentals() {
   const markCompleted = async (bookingId) => {
     setCompleting((prev) => ({ ...prev, [bookingId]: true }));
     try {
-      await updateDoc(doc(db, 'bookings', bookingId), { status: 'completed' });
+      await updateDoc(doc(db, 'bookings', bookingId), {
+        status: 'completed',
+        completedAt: serverTimestamp(),
+      });
     } catch (err) {
       console.error('Mark completed error:', err);
     } finally {

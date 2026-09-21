@@ -2,9 +2,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, MapPin, PackageOpen, Calendar, Package, CheckCircle2 } from 'lucide-react';
-import { getDocs, query, addDoc, serverTimestamp } from 'firebase/firestore';
-import { itemsCol, bookingsCol, itemRequestsCol } from '../firebase/collections';
-import { DEMO_MODE, DEMO_USER_ID } from '../config/demo';
+import { getDocs, query, where, addDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { itemsCol, bookingsCol, itemRequestsCol, getItemRequestOffersCol } from '../firebase/collections';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../hooks/useTranslation';
 import Card from '../components/Card';
@@ -14,107 +13,7 @@ import Loading from '../components/Loading';
 import Modal from '../components/Modal';
 import RentalItemCard from '../components/RentalItemCard';
 
-// ─── MOCK DATA ────────────────────────────────────────────────────────────────
-export const MOCK_ITEMS = [
-  {
-    ownerId: 'owner-main',
-    name: 'Canon EOS 90D DSLR Camera',
-    category: 'Cameras',
-    description: 'Professional DSLR camera with 32.5MP sensor. Includes 18-55mm and 55-250mm lenses, 2 batteries, charger, and 128GB SD card. Perfect for events, portraits and wildlife.',
-    images: ['https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=800'],
-    price: 750,
-    priceUnit: 'day',
-    securityDeposit: 5000,
-    location: 'Kochi, Kerala',
-    availability: true,
-    rating: 4.8,
-    createdAt: new Date(),
-  },
-  {
-    ownerId: 'owner-main',
-    name: 'Dell XPS 15 Laptop',
-    category: 'Laptops',
-    description: 'High-performance Dell XPS 15 with Intel Core i7, 16GB RAM, 512GB SSD, and NVIDIA GeForce GTX 1650. Ideal for design work, presentations, and coding.',
-    images: ['https://images.unsplash.com/photo-1593642632559-0c6d3fc62b89?auto=format&fit=crop&q=80&w=800'],
-    price: 600,
-    priceUnit: 'day',
-    securityDeposit: 8000,
-    location: 'Trivandrum, Kerala',
-    availability: true,
-    rating: 4.7,
-    createdAt: new Date(),
-  },
-  {
-    ownerId: 'owner-main',
-    name: 'Epson Full HD Projector',
-    category: 'Event Equipment',
-    description: '4000-lumen Full HD projector with HDMI, USB, and VGA inputs. Perfect for college events, presentations, movie nights, and weddings.',
-    images: ['https://images.unsplash.com/photo-1611532736597-de2d4265fba3?auto=format&fit=crop&q=80&w=800'],
-    price: 500,
-    priceUnit: 'day',
-    securityDeposit: 3000,
-    location: 'Calicut, Kerala',
-    availability: true,
-    rating: 4.9,
-    createdAt: new Date(),
-  },
-  {
-    ownerId: 'owner-main',
-    name: 'Bosch Professional Power Drill',
-    category: 'Tools',
-    description: 'Heavy-duty 20V cordless impact drill for concrete, wood, and metal. Includes a full set of 25 drill bits, two batteries, and a fast charger.',
-    images: ['https://images.unsplash.com/photo-1504148455328-c376907d081c?auto=format&fit=crop&q=80&w=800'],
-    price: 200,
-    priceUnit: 'day',
-    securityDeposit: 1000,
-    location: 'Thrissur, Kerala',
-    availability: true,
-    rating: 4.5,
-    createdAt: new Date(),
-  },
-  {
-    ownerId: 'owner-main',
-    name: 'Coleman 6-Person Camping Tent',
-    category: 'Household',
-    description: 'Spacious 6-person dome tent with weather-resistant rainfly and ground cloth. Easy 20-minute setup. Great for weekend treks and outdoor events.',
-    images: ['https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?auto=format&fit=crop&q=80&w=800'],
-    price: 350,
-    priceUnit: 'day',
-    securityDeposit: 1500,
-    location: 'Munnar, Kerala',
-    availability: true,
-    rating: 4.6,
-    createdAt: new Date(),
-  },
-  {
-    ownerId: 'owner-main',
-    name: 'JBL PartyBox 310 Speaker',
-    category: 'Event Equipment',
-    description: 'Powerful 240W RMS portable speaker with dynamic light show, splash-proof design, and 18-hour playtime. Turn any space into a party.',
-    images: ['https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?auto=format&fit=crop&q=80&w=800'],
-    price: 800,
-    priceUnit: 'day',
-    securityDeposit: 4000,
-    location: 'Kottayam, Kerala',
-    availability: true,
-    rating: 4.9,
-    createdAt: new Date(),
-  },
-  {
-    ownerId: 'owner-main',
-    name: 'Swift Dzire — Self Drive Car',
-    category: 'Vehicles',
-    description: 'Well-maintained 2022 Maruti Swift Dzire with AC, Bluetooth, and GPS. Petrol, clean interior. Fuel not included. Valid driving licence required.',
-    images: ['https://images.unsplash.com/photo-1502877338535-766e1452684a?auto=format&fit=crop&q=80&w=800'],
-    price: 1200,
-    priceUnit: 'day',
-    securityDeposit: 5000,
-    location: 'Ernakulam, Kerala',
-    availability: false,   // intentionally unavailable for demo
-    rating: 4.4,
-    createdAt: new Date(),
-  },
-];
+const normalizeLocation = (value) => String(value || '').trim().toLowerCase();
 
 // ─── RENTAL REQUEST MODAL ─────────────────────────────────────────────────────
 function RentalRequestModal({ isOpen, onClose, item }) {
@@ -153,7 +52,7 @@ function RentalRequestModal({ isOpen, onClose, item }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!currentUser && !DEMO_MODE) { setError(t('authRequired')); return; }
+    if (!currentUser) { setError(t('authRequired')); return; }
     if (!startDate || !endDate) { setError(t('missingDates')); return; }
     const s = new Date(startDate);
     const e2 = new Date(endDate);
@@ -167,7 +66,9 @@ function RentalRequestModal({ isOpen, onClose, item }) {
         itemId: item.id,
         itemName: item.name,
         itemLocation: item.location || '',
-        renterId: currentUser?.uid || DEMO_USER_ID,
+        renterId: currentUser.uid,
+        renterName: currentUser.displayName || currentUser.email || '',
+        renterEmail: currentUser.email || '',
         ownerId: item.ownerId,
         startDate: s,
         endDate: e2,
@@ -343,6 +244,11 @@ function RequestItemModal({ isOpen, onClose }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    if (!currentUser) {
+      setError(t('authRequired'));
+      return;
+    }
+
     if (!startDate || !endDate) {
       setError(t('missingDates'));
       return;
@@ -350,7 +256,7 @@ function RequestItemModal({ isOpen, onClose }) {
 
     const startObj = new Date(startDate);
     const endObj = new Date(endDate);
-    
+
     if (isNaN(startObj) || isNaN(endObj)) {
       setError(t('invalidDateRange'));
       return;
@@ -365,7 +271,9 @@ function RequestItemModal({ isOpen, onClose }) {
       setLoading(true);
       setError('');
       await addDoc(itemRequestsCol, {
-        requesterId: currentUser?.uid || DEMO_USER_ID,
+        requesterId: currentUser.uid,
+        requesterName: currentUser.displayName || currentUser.email || '',
+        requesterEmail: currentUser.email || '',
         itemName,
         category,
         description,
@@ -374,12 +282,14 @@ function RequestItemModal({ isOpen, onClose }) {
         endDate: endObj,
         budget: budget || null,
         status: 'open',
+        selectedProviderId: null,
+        selectedOfferId: null,
         createdAt: serverTimestamp(),
       });
       setSuccess(true);
     } catch (err) {
       console.error('Firestore error:', err);
-      setError(t('requestError'));
+      setError(`${t('requestError')} (${err.code || err.message})`);
     } finally {
       setLoading(false);
     }
@@ -488,12 +398,146 @@ function RequestItemModal({ isOpen, onClose }) {
   );
 }
 
+// ─── PROVIDER OFFER MODAL ────────────────────────────────────────────────────
+function ProvideItemModal({ isOpen, onClose, request }) {
+  const { t } = useTranslation();
+  const { currentUser } = useAuth();
+  const [providerName, setProviderName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [message, setMessage] = useState('');
+  const [price, setPrice] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setProviderName(currentUser?.displayName || currentUser?.email || '');
+    setPhone('');
+    setMessage('');
+    setPrice('');
+    setSuccess(false);
+    setError('');
+  }, [isOpen, currentUser, request]);
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+
+    if (!currentUser) {
+      setError(t('authRequired'));
+      return;
+    }
+
+    if (request?.requesterId === currentUser.uid) {
+      setError(t('ownRequestCannotBeAccepted'));
+      return;
+    }
+
+    if (!providerName.trim() || !phone.trim()) {
+      setError(t('providerDetailsRequired'));
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError('');
+      await addDoc(getItemRequestOffersCol(request.id), {
+        providerId: currentUser.uid,
+        providerName: providerName.trim(),
+        providerEmail: currentUser.email || '',
+        providerPhone: phone.trim(),
+        message: message.trim(),
+        price: price === '' ? null : Number(price),
+        status: 'pending',
+        createdAt: serverTimestamp(),
+      });
+      setSuccess(true);
+    } catch (submissionError) {
+      console.error('Error submitting provider offer:', submissionError);
+      setError(`${t('requestError')} (${submissionError.code || submissionError.message})`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!request) return null;
+
+  const formatRequestDate = (value) => value
+    ? new Date(value.toDate?.() || value).toLocaleDateString()
+    : t('notAvailable');
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title={t('provideRequestedItem')} maxWidth="max-w-lg">
+      {success ? (
+        <div className="text-center py-5">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <CheckCircle2 className="w-8 h-8 text-green-600" />
+          </div>
+          <h3 className="text-xl font-bold text-gray-900 mb-2">{t('offerSubmitted')}</h3>
+          <p className="text-gray-500 mb-6">{t('offerSubmittedDesc')}</p>
+          <Button variant="primary" onClick={onClose}>{t('close')}</Button>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="rounded-lg bg-gray-50 border border-gray-100 p-4 space-y-2">
+            <p className="text-xs text-primary font-semibold uppercase tracking-wider">{request.category || t('otherCategory')}</p>
+            <h3 className="font-semibold text-gray-900">{request.itemName}</h3>
+            {request.description && <p className="text-sm text-gray-600">{request.description}</p>}
+            <p className="text-sm text-gray-600">{request.location || t('notAvailable')}</p>
+            <p className="text-sm text-gray-600">{formatRequestDate(request.startDate)} — {formatRequestDate(request.endDate)}</p>
+          </div>
+
+          <Input
+            label={t('providerName')}
+            value={providerName}
+            onChange={(event) => setProviderName(event.target.value)}
+            required
+          />
+          <Input
+            label={t('phone')}
+            type="tel"
+            value={phone}
+            onChange={(event) => setPhone(event.target.value)}
+            required
+          />
+          <Input
+            label={t('price')}
+            type="number"
+            min="0"
+            value={price}
+            onChange={(event) => setPrice(event.target.value)}
+            placeholder={t('optionalPrice')}
+          />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('message')}</label>
+            <textarea
+              className="input w-full resize-none"
+              rows={3}
+              value={message}
+              onChange={(event) => setMessage(event.target.value)}
+              placeholder={t('providerMessagePlaceholder')}
+            />
+          </div>
+
+          {error && <p className="text-sm text-red-600">{error}</p>}
+          <Button type="submit" variant="primary" className="w-full" isLoading={loading}>
+            {t('submitOffer')}
+          </Button>
+        </form>
+      )}
+    </Modal>
+  );
+}
+
 // ─── MAIN RENT PAGE ───────────────────────────────────────────────────────────
 export default function Rent() {
   const { t } = useTranslation();
 
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [communityRequests, setCommunityRequests] = useState([]);
+  const [communityRequestsLoading, setCommunityRequestsLoading] = useState(true);
+  const [communityRequestsError, setCommunityRequestsError] = useState(false);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -507,6 +551,7 @@ export default function Rent() {
   // Modals
   const [rentalModalItem, setRentalModalItem] = useState(null);
   const [itemRequestModalOpen, setItemRequestModalOpen] = useState(false);
+  const [offerRequest, setOfferRequest] = useState(null);
 
   const categories = [
     { value: 'Electronics', label: t('electronicsCategory') },
@@ -520,29 +565,13 @@ export default function Rent() {
   ];
 
   const fetchItems = async () => {
-    const demoItems = MOCK_ITEMS.map((item, index) => ({ id: `demo-item-${index + 1}`, ...item }));
-
-    // Render the local catalog immediately in demo mode while Firestore loads.
-    if (DEMO_MODE) {
-      setItems(demoItems);
-      setLoading(false);
-    }
-
     try {
-      if (!DEMO_MODE) setLoading(true);
+      setLoading(true);
       const snapshot = await getDocs(query(itemsCol));
-      const fetchedItems = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-
-      // Keep the rental experience usable while the Firestore collection is
-      // empty during demo mode. These items can still be requested normally.
-      setItems(fetchedItems.length > 0
-        ? fetchedItems
-        : demoItems);
+      setItems(snapshot.docs.map((itemDoc) => ({ id: itemDoc.id, ...itemDoc.data() })));
     } catch (err) {
       console.error('Error fetching items:', err);
-      // A Firestore read can fail when demo security rules are not configured.
-      // Show the local catalog instead of leaving the rental page blank.
-      setItems(demoItems);
+      setItems([]);
     } finally {
       setLoading(false);
     }
@@ -550,18 +579,31 @@ export default function Rent() {
 
   useEffect(() => { fetchItems(); }, []);
 
-  const handleSeedData = async () => {
-    try {
-      setLoading(true);
-      for (const item of MOCK_ITEMS) {
-        await addDoc(itemsCol, item);
+  // Keep open community requests visible to everyone in real time. Once a
+  // request is fulfilled, its status changes and this listener removes it from
+  // the public list automatically.
+  useEffect(() => {
+    const openRequestsQuery = query(itemRequestsCol, where('status', '==', 'open'));
+    const unsubscribe = onSnapshot(
+      openRequestsQuery,
+      (snapshot) => {
+        const requests = snapshot.docs
+          .map((requestDoc) => ({ id: requestDoc.id, ...requestDoc.data() }))
+          .sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
+        setCommunityRequests(requests);
+        setCommunityRequestsLoading(false);
+        setCommunityRequestsError(false);
+      },
+      (error) => {
+        console.error('Error loading community requests:', error);
+        setCommunityRequests([]);
+        setCommunityRequestsLoading(false);
+        setCommunityRequestsError(true);
       }
-      await fetchItems();
-    } catch (err) {
-      console.error('Error seeding data:', err);
-      setLoading(false);
-    }
-  };
+    );
+
+    return unsubscribe;
+  }, []);
 
   const clearFilters = () => {
     setSearchQuery('');
@@ -576,8 +618,9 @@ export default function Rent() {
   const processedItems = items
     .filter((item) => {
       const searchableText = `${item.name || ''} ${item.category || ''} ${item.location || ''}`.toLowerCase();
-      const matchesSearch = searchableText.includes(searchQuery.toLowerCase());
-      const matchesLocation = item.location?.toLowerCase().includes(locationQuery.toLowerCase());
+      const matchesSearch = searchableText.includes(searchQuery.trim().toLowerCase());
+      const normalizedLocation = normalizeLocation(locationQuery);
+      const matchesLocation = !normalizedLocation || normalizeLocation(item.location).includes(normalizedLocation);
       const matchesCategory = selectedCategory ? item.category === selectedCategory : true;
       const matchesAvailability = availableOnly ? item.availability === true : true;
       const matchesMinPrice = minPrice === '' || Number(item.price) >= Number(minPrice);
@@ -591,6 +634,16 @@ export default function Rent() {
       return 0;
     });
 
+  const processedCommunityRequests = communityRequests.filter((request) => {
+    const normalizedSearch = searchQuery.trim().toLowerCase();
+    const normalizedLocation = normalizeLocation(locationQuery);
+    const searchableText = `${request.itemName || ''} ${request.category || ''} ${request.description || ''} ${request.location || ''}`.toLowerCase();
+    const matchesSearch = !normalizedSearch || searchableText.includes(normalizedSearch);
+    const matchesLocation = !normalizedLocation || normalizeLocation(request.location).includes(normalizedLocation);
+    const matchesCategory = !selectedCategory || request.category === selectedCategory;
+    return matchesSearch && matchesLocation && matchesCategory;
+  });
+
   const isFiltered = searchQuery || locationQuery || selectedCategory || availableOnly || minPrice || maxPrice;
 
   return (
@@ -598,9 +651,6 @@ export default function Rent() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <h1 className="text-2xl md:text-3xl font-bold text-gray-900">{t('exploreRentals')}</h1>
-        <Button onClick={handleSeedData} variant="secondary" size="sm">
-          {t('seedDemoData')}
-        </Button>
       </div>
 
       {/* Search & Filters */}
@@ -681,6 +731,79 @@ export default function Rent() {
           </label>
         </div>
       </Card>
+
+      {/* Community requests — visible to every visitor while open */}
+      <section className="order-last mt-12 pt-10 border-t border-gray-200" aria-labelledby="community-requests-heading">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 mb-4">
+          <div>
+            <h2 id="community-requests-heading" className="text-xl font-bold text-gray-900">
+              {t('communityRequests')}
+            </h2>
+            <p className="text-sm text-gray-500 mt-1">{t('communityRequestsDesc')}</p>
+          </div>
+          <span className="text-xs font-semibold text-primary bg-primary/10 rounded-full px-3 py-1 w-fit">
+            {processedCommunityRequests.length} {t('openRequests')}
+          </span>
+        </div>
+
+        {communityRequestsLoading ? (
+          <Loading />
+        ) : communityRequestsError ? (
+          <Card className="text-sm text-red-600">{t('firebaseError')}</Card>
+        ) : processedCommunityRequests.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {processedCommunityRequests.map((request) => (
+              <Card key={request.id} className="flex flex-col gap-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs text-primary font-semibold uppercase tracking-wider mb-1">
+                      {request.category || t('otherCategory')}
+                    </p>
+                    <h3 className="font-semibold text-gray-900 leading-tight">{request.itemName}</h3>
+                  </div>
+                  <span className="badge badge-active shrink-0">{t('statusOpen')}</span>
+                </div>
+
+                {request.description && (
+                  <p className="text-sm text-gray-600 line-clamp-2">{request.description}</p>
+                )}
+
+                <div className="flex flex-col gap-1.5 text-sm text-gray-600">
+                  {request.location && (
+                    <div className="flex items-center">
+                      <MapPin className="w-4 h-4 mr-2 text-gray-400 shrink-0" />
+                      <span>{request.location}</span>
+                    </div>
+                  )}
+                  {(request.startDate || request.endDate) && (
+                    <div className="flex items-center">
+                      <Calendar className="w-4 h-4 mr-2 text-gray-400 shrink-0" />
+                      <span>{request.startDate ? new Date(request.startDate.toDate?.() || request.startDate).toLocaleDateString() : t('notAvailable')} — {request.endDate ? new Date(request.endDate.toDate?.() || request.endDate).toLocaleDateString() : t('notAvailable')}</span>
+                    </div>
+                  )}
+                  {request.budget && (
+                    <div className="pt-2 mt-1 border-t border-gray-100">
+                      <span className="text-gray-500">{t('budget')}: </span>
+                      <span className="font-semibold text-gray-900">{request.budget}</span>
+                    </div>
+                  )}
+                </div>
+
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="w-full mt-auto"
+                  onClick={() => setOfferRequest(request)}
+                >
+                  {t('iCanProvideThis')}
+                </Button>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <Card className="text-center text-sm text-gray-500">{t('noOpenRequests')}</Card>
+        )}
+      </section>
 
       {/* Content */}
       {loading ? (
@@ -769,6 +892,11 @@ export default function Rent() {
       <RequestItemModal
         isOpen={itemRequestModalOpen}
         onClose={() => setItemRequestModalOpen(false)}
+      />
+      <ProvideItemModal
+        isOpen={!!offerRequest}
+        onClose={() => setOfferRequest(null)}
+        request={offerRequest}
       />
     </div>
   );

@@ -19,6 +19,15 @@ import Services from './pages/Services';
 import Activity from './pages/Activity';
 import NotFound from './pages/NotFound';
 
+// Services Pages
+import ProviderList from './pages/services/ProviderList';
+import ProviderProfile from './pages/services/ProviderProfile';
+import RequestForm from './pages/services/RequestForm';
+import MyRequests from './pages/services/MyRequests';
+import ProviderRegister from './pages/services/ProviderRegister';
+import ProviderDashboard from './pages/services/ProviderDashboard';
+import ProviderEarnings from './pages/services/ProviderEarnings';
+
 // ── Owner module ───────────────────────────────────────────
 import ListItem from './pages/ListItem';
 import OwnerLayout from './pages/owner/OwnerLayout';
@@ -27,6 +36,7 @@ import MyListings from './pages/owner/MyListings';
 import RentalRequests from './pages/owner/RentalRequests';
 import ActiveRentals from './pages/owner/ActiveRentals';
 import Earnings from './pages/owner/Earnings';
+import MarketplaceAgreement from './components/MarketplaceAgreement';
 
 function App() {
   return (
@@ -43,16 +53,76 @@ function App() {
                 <Route path="/register" element={<Register />} />
                 <Route path="/rent" element={<Rent />} />
                 <Route path="/rent/:itemId" element={<ItemDetails />} />
+
+                {/* Services browsing is public; requests and provider tools require auth. */}
                 <Route path="/services" element={<Services />} />
+                <Route path="/services/provider/:providerId" element={<ProviderProfile />} />
+                <Route
+                  path="/services/request/:providerId"
+                  element={
+                    <ProtectedRoute>
+                      <RequestForm />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/services/my-requests"
+                  element={
+                    <ProtectedRoute>
+                      <MyRequests />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/services/provider-register"
+                  element={
+                    <ProtectedRoute>
+                      <ProviderRegister />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/services/provider-dashboard"
+                  element={
+                    <ProtectedRoute>
+                      <ProviderDashboard />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/services/provider-earnings"
+                  element={
+                    <ProtectedRoute>
+                      <ProviderEarnings />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route path="/services/:category" element={<ProviderList />} />
 
-                {/* ── Protected (general) Routes ── */}
-                <Route path="/profile"  element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-                <Route path="/activity" element={<ProtectedRoute><Activity /></ProtectedRoute>} />
-
-                {/* ── Add Item (standalone, uses global Navbar) ── */}
+                {/* Protected General Routes */}
+                <Route
+                  path="/profile"
+                  element={
+                    <ProtectedRoute>
+                      <Profile />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/activity"
+                  element={
+                    <ProtectedRoute>
+                      <Activity />
+                    </ProtectedRoute>
+                  }
+                />
                 <Route
                   path="/list-item"
-                  element={<ProtectedRoute><ListItem /></ProtectedRoute>}
+                  element={
+                    <ProtectedRoute>
+                      <ListItem />
+                    </ProtectedRoute>
+                  }
                 />
 
                 {/* ── Owner Module Routes ── */}
@@ -113,6 +183,7 @@ function App() {
               </Routes>
             </main>
             <Footer />
+            <MarketplaceAgreement />
           </div>
         </AuthProvider>
       </LanguageProvider>

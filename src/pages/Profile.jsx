@@ -1,7 +1,7 @@
 // src/pages/Profile.jsx
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { LogOut, User, MapPin, Settings } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { LogOut, User, MapPin, Settings, Wrench, ArrowRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../hooks/useTranslation';
 import Card from '../components/Card';
@@ -63,6 +63,37 @@ export default function Profile() {
             {t('edit')}
           </Button>
         </Card>
+
+        {/* Services Section */}
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <Wrench className="w-5 h-5 text-gray-400" />
+            {t('services')}
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Link
+              to="/services/my-requests"
+              className="flex items-center justify-between p-4 bg-white rounded-xl border border-gray-200 hover:border-[#4682B4] hover:shadow-sm transition-all group"
+            >
+              <div>
+                <p className="font-semibold text-gray-900 text-sm">{t('myRequests')}</p>
+                <p className="text-xs text-gray-500">Track and manage your booked services</p>
+              </div>
+              <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-[#4682B4] transition-colors" />
+            </Link>
+
+            <Link
+              to="/services/provider-dashboard"
+              className="flex items-center justify-between p-4 bg-white rounded-xl border border-gray-200 hover:border-[#4682B4] hover:shadow-sm transition-all group"
+            >
+              <div>
+                <p className="font-semibold text-gray-900 text-sm">{t('providerDashboard')}</p>
+                <p className="text-xs text-gray-500">Manage client requests & earnings</p>
+              </div>
+              <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-[#4682B4] transition-colors" />
+            </Link>
+          </div>
+        </div>
 
         {/* Preferences Section */}
         <div>

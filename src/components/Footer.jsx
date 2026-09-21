@@ -1,6 +1,7 @@
 // src/components/Footer.jsx
 import { Link } from 'react-router-dom';
 import { useTranslation } from '../hooks/useTranslation';
+import Brand from './Brand';
 
 export default function Footer() {
   const { t } = useTranslation();
@@ -13,11 +14,8 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           
           <div className="col-span-1 md:col-span-2">
-            <Link to="/" className="flex items-center gap-2 text-primary font-bold text-xl tracking-tight mb-4">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white">
-                L
-              </div>
-              LendIt
+            <Link to="/" aria-label="lendit home" className="inline-flex mb-4">
+              <Brand />
             </Link>
             <p className="text-gray-500 max-w-sm mb-6">
               {t('heroSubtitle')}
@@ -42,7 +40,7 @@ export default function Footer() {
         </div>
         
         <div className="border-t border-gray-200 mt-8 pt-8 flex flex-col md:flex-row items-center justify-between text-sm text-gray-500">
-          <p>© {currentYear} LendIt. All rights reserved.</p>
+          <p>© {currentYear} lendit. All rights reserved.</p>
           <div className="flex gap-4 mt-4 md:mt-0">
             <a href="#" className="hover:text-gray-900 transition-colors">Privacy</a>
             <a href="#" className="hover:text-gray-900 transition-colors">Terms</a>

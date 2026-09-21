@@ -16,6 +16,7 @@ export const COLLECTIONS = {
   ITEM_REQUESTS:     'itemRequests',
   SERVICE_PROVIDERS: 'serviceProviders',
   SERVICE_REQUESTS:  'serviceRequests',
+  PROBLEM_REPORTS:   'problemReports',
 };
 
 // ── Collection references ─────────────────────────────────────────────────
@@ -25,14 +26,17 @@ export const bookingsCol         = collection(db, COLLECTIONS.BOOKINGS);
 export const itemRequestsCol     = collection(db, COLLECTIONS.ITEM_REQUESTS);
 export const serviceProvidersCol = collection(db, COLLECTIONS.SERVICE_PROVIDERS);
 export const serviceRequestsCol  = collection(db, COLLECTIONS.SERVICE_REQUESTS);
+export const problemReportsCol   = collection(db, COLLECTIONS.PROBLEM_REPORTS);
 
 // ── Document reference helpers ────────────────────────────────────────────
 export const getUserRef            = (userId)     => doc(db, COLLECTIONS.USERS,             userId);
 export const getItemRef            = (itemId)     => doc(db, COLLECTIONS.ITEMS,             itemId);
 export const getBookingRef         = (bookingId)  => doc(db, COLLECTIONS.BOOKINGS,          bookingId);
 export const getItemRequestRef     = (requestId)  => doc(db, COLLECTIONS.ITEM_REQUESTS,     requestId);
+export const getItemRequestOffersCol = (requestId) => collection(db, COLLECTIONS.ITEM_REQUESTS, requestId, 'offers');
 export const getProviderRef        = (providerId) => doc(db, COLLECTIONS.SERVICE_PROVIDERS, providerId);
 export const getServiceRequestRef  = (requestId)  => doc(db, COLLECTIONS.SERVICE_REQUESTS,  requestId);
+export const getProblemReportRef   = (reportId)   => doc(db, COLLECTIONS.PROBLEM_REPORTS,   reportId);
 
 // ── Data schemas (JSDoc) ───────────────────────────────────────────────────
 // These are NOT enforced — they are here as documentation for all developers.
@@ -74,24 +78,7 @@ export const getServiceRequestRef  = (requestId)  => doc(db, COLLECTIONS.SERVICE
  * @property {import('firebase/firestore').Timestamp} endDate
  * @property {number}   totalAmount
  * @property {number}   securityDeposit
- * @property {string}   status           - 'pending' | 'accepted' | 'rejected' | 'active' | 'completed' | 'cancelled'
- * @property {string}   pickupOption     - 'pickup' | 'delivery'
- * @property {boolean}  [returnReminderEnabled]
- * @property {import('firebase/firestore').Timestamp} [returnReminderAt]
- * @property {import('firebase/firestore').Timestamp} createdAt
- */
-
-/**
- * @typedef {Object} ItemRequestDoc
- * @property {string}   requesterId
- * @property {string}   itemName
- * @property {string}   category
- * @property {string}   description
- * @property {string}   location
- * @property {import('firebase/firestore').Timestamp} startDate
- * @property {import('firebase/firestore').Timestamp} endDate
- * @property {string}   [budget]
- * @property {string}   status           - 'open' | 'fulfilled' | 'cancelled'
+ * @property {string}   status           - 'pending' | 'active' | 'done' | 'canceled'
  * @property {import('firebase/firestore').Timestamp} createdAt
  */
 
@@ -99,6 +86,7 @@ export const getServiceRequestRef  = (requestId)  => doc(db, COLLECTIONS.SERVICE
  * @typedef {Object} ServiceProviderDoc
  * @property {string}   userId
  * @property {string[]} services
+ * @property {string} [customServiceName]
  * @property {number}   experience       - years
  * @property {string}   location
  * @property {number}   price

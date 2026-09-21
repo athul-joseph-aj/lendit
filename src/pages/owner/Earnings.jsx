@@ -79,14 +79,17 @@ export default function Earnings() {
         const transactions = await Promise.all(
           recent.map(async (booking) => {
             let itemName = booking.itemId;
-            let renterName = booking.renterId;
+            let renterName = booking.renterName || booking.renterEmail || t('renter');
             if (booking.itemId) {
               const itemSnap = await getDoc(doc(db, 'items', booking.itemId));
               if (itemSnap.exists()) itemName = itemSnap.data().name;
             }
             if (booking.renterId) {
               const renterSnap = await getDoc(doc(db, 'users', booking.renterId));
-              if (renterSnap.exists()) renterName = renterSnap.data().name || renterSnap.data().email;
+              if (renterSnap.exists()) {
+                const renterProfile = renterSnap.data();
+                renterName = renterProfile.name || renterProfile.displayName || renterProfile.email || renterName;
+              }
             }
             return { ...booking, itemName, renterName };
           })
