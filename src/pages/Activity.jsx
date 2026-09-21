@@ -55,11 +55,19 @@ export default function Activity() {
         const list = [];
         for (const bookingDoc of snapshot.docs) {
           const data = bookingDoc.data();
+          if (!data.itemId) continue;
+
           let itemData = null;
           try {
             const itemSnap = await getDoc(doc(db, 'items', data.itemId));
             if (itemSnap.exists()) itemData = itemSnap.data();
           } catch {}
+
+          // Bookings can outlive their item when an owner removes a listing or
+          // the database is reset. Do not render those orphaned records as
+          // "Unknown item" cards; only show requests for current listings.
+          if (!itemData) continue;
+
           list.push({ id: bookingDoc.id, ...data, item: itemData });
         }
 
