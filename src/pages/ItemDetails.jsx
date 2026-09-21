@@ -111,6 +111,8 @@ export default function ItemDetails() {
         itemName: item.name,
         itemLocation: item.location || '',
         renterId: currentUser.uid,
+        renterName: currentUser.displayName || currentUser.email || '',
+        renterEmail: currentUser.email || '',
         ownerId: item.ownerId,
         startDate: start,
         endDate: end,

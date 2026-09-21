@@ -46,10 +46,11 @@ export default function RentalRequests() {
       data.renterId ? getDoc(doc(db, 'users', data.renterId)) : Promise.resolve(null),
       data.itemId   ? getDoc(doc(db, 'items', data.itemId))   : Promise.resolve(null),
     ]);
+    const renterProfile = renterSnap?.exists() ? renterSnap.data() : {};
     return {
       id: bookingId,
       ...data,
-      renterName: renterSnap?.exists() ? renterSnap.data().name || renterSnap.data().email : data.renterId,
+      renterName: renterProfile.name || renterProfile.displayName || renterProfile.email || data.renterName || data.renterEmail || t('renter'),
       itemName:   itemSnap?.exists()   ? itemSnap.data().name : data.itemName || data.itemId,
       itemLocation: itemSnap?.exists() ? itemSnap.data().location : data.itemLocation,
     };

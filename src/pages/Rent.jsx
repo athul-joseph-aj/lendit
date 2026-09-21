@@ -65,6 +65,8 @@ function RentalRequestModal({ isOpen, onClose, item }) {
         itemName: item.name,
         itemLocation: item.location || '',
         renterId: currentUser.uid,
+        renterName: currentUser.displayName || currentUser.email || '',
+        renterEmail: currentUser.email || '',
         ownerId: item.ownerId,
         startDate: s,
         endDate: e2,
