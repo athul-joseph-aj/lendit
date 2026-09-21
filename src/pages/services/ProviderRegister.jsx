@@ -3,7 +3,7 @@
 // Zero localStorage used.
 
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft,
   User,
@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase/firebase';
+import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useProviderProfile } from '../../hooks/services/useProviderProfile';
 import { uploadImageSafely } from '../../utils/imageUpload';
@@ -58,14 +59,12 @@ const WORKING_HOURS_PRESETS = [
 const PRICE_PRESETS = [199, 299, 499, 799];
 
 export default function ProviderRegister() {
+  const { currentUser } = useAuth();
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const fileInputRef = useRef(null);
 
-  // Optional query param: /services/provider-register?providerId=...
-  const queryProviderId = searchParams.get('providerId');
-  const { provider: existingProfile, loading: profileLoading } = useProviderProfile(queryProviderId);
+  const { provider: existingProfile, loading: profileLoading } = useProviderProfile(currentUser?.uid);
 
   const [form, setForm] = useState({
     name: '',
@@ -188,6 +187,11 @@ export default function ProviderRegister() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!currentUser) {
+      setError(t('authRequired'));
+      return;
+    }
+
     if (!form.name.trim()) {
       setError(t('providerName') || 'Name is required.');
       return;
@@ -209,9 +213,8 @@ export default function ProviderRegister() {
     setError('');
 
     try {
-      // Deterministic document ID based on phone or existing ID in Firebase
-      const cleanPhone = form.phone.replace(/\D/g, '');
-      const providerDocId = queryProviderId || `provider_${cleanPhone || Date.now().toString(36)}`;
+      // A provider profile belongs to the authenticated Firebase user.
+      const providerDocId = currentUser.uid;
 
       // Safe image upload directly to cloud
       let profileImageUrl = existingImageUrl;
@@ -224,7 +227,7 @@ export default function ProviderRegister() {
       }
 
       const providerData = {
-        userId: providerDocId,
+        userId: currentUser.uid,
         name: form.name.trim(),
         phone: form.phone.trim(),
         services: selectedServices,

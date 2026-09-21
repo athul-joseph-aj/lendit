@@ -1,17 +1,17 @@
 // src/context/AuthContext.jsx
-// Auth is disabled — a fixed owner identity is used for all Firestore operations.
-// This lets you use the app without Firebase Authentication.
-
-import { createContext, useContext } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
+import {
+  GoogleAuthProvider,
+  createUserWithEmailAndPassword,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  signOut,
+  updateProfile,
+} from 'firebase/auth';
+import { auth } from '../firebase/firebase';
 
 const AuthContext = createContext(null);
-
-// Fixed owner identity — all items will be saved under this ID
-const OWNER_USER = {
-  uid: 'owner-main',
-  displayName: 'Owner',
-  email: 'owner@lendit.app',
-};
 
 export function useAuth() {
   const ctx = useContext(AuthContext);
@@ -20,12 +20,41 @@ export function useAuth() {
 }
 
 export function AuthProvider({ children }) {
+  const [currentUser, setCurrentUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+      setLoading(false);
+    });
+
+    return unsubscribe;
+  }, []);
+
+  const login = (email, password) => signInWithEmailAndPassword(auth, email, password);
+
+  const register = async (email, password, displayName = '') => {
+    const credential = await createUserWithEmailAndPassword(auth, email, password);
+    const trimmedName = displayName.trim();
+
+    if (trimmedName) {
+      await updateProfile(credential.user, { displayName: trimmedName });
+    }
+
+    return credential;
+  };
+
+  const googleLogin = () => signInWithPopup(auth, new GoogleAuthProvider());
+  const logout = () => signOut(auth);
+
   const value = {
-    currentUser: OWNER_USER,
-    loading: false,
-    login: () => Promise.resolve(),
-    register: () => Promise.resolve(),
-    logout: () => Promise.resolve(),
+    currentUser,
+    loading,
+    login,
+    register,
+    googleLogin,
+    logout,
   };
 
   return (

@@ -10,7 +10,7 @@ import Button from '../components/Button';
 import Brand from '../components/Brand';
 
 export default function Register() {
-  const { register } = useAuth();
+  const { register, googleLogin } = useAuth();
   const { t } = useTranslation();
   const navigate = useNavigate();
   
@@ -19,6 +19,25 @@ export default function Register() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const getAuthErrorMessage = (err) => {
+    switch (err.code) {
+      case 'auth/email-already-in-use':
+        return t('emailInUse');
+      case 'auth/invalid-email':
+        return t('invalidEmail');
+      case 'auth/weak-password':
+        return t('weakPassword');
+      case 'auth/network-request-failed':
+        return t('networkError');
+      case 'auth/popup-closed-by-user':
+        return t('popupClosed');
+      case 'auth/popup-blocked':
+        return t('popupBlocked');
+      default:
+        return t('error');
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -30,27 +49,25 @@ export default function Register() {
     try {
       setError('');
       setLoading(true);
-      await register(name, email, password);
+      await register(email, password, name);
       navigate('/profile');
     } catch (err) {
       console.error(err);
-      // Map Firebase errors to friendly messages
-      switch (err.code) {
-        case 'auth/email-already-in-use':
-          setError(t('emailInUse'));
-          break;
-        case 'auth/invalid-email':
-          setError(t('invalidEmail'));
-          break;
-        case 'auth/weak-password':
-          setError(t('weakPassword'));
-          break;
-        case 'auth/network-request-failed':
-          setError(t('networkError'));
-          break;
-        default:
-          setError(t('error'));
-      }
+      setError(getAuthErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleRegister = async () => {
+    try {
+      setError('');
+      setLoading(true);
+      await googleLogin();
+      navigate('/profile');
+    } catch (err) {
+      console.error(err);
+      setError(getAuthErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -112,6 +129,23 @@ export default function Register() {
               {t('createAccount')}
             </Button>
           </form>
+
+          <div className="flex items-center gap-3 my-6">
+            <div className="h-px bg-gray-200 flex-1" />
+            <span className="text-xs text-gray-400 uppercase">{t('or')}</span>
+            <div className="h-px bg-gray-200 flex-1" />
+          </div>
+
+          <Button
+            type="button"
+            variant="secondary"
+            className="w-full"
+            isLoading={loading}
+            onClick={handleGoogleRegister}
+          >
+            <span className="font-bold text-blue-600 mr-2">G</span>
+            {t('continueWithGoogle')}
+          </Button>
         </Card>
 
         <p className="text-center mt-8 text-gray-600">

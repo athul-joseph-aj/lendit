@@ -20,6 +20,7 @@ import {
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase/firebase';
 import { useTranslation } from '../../hooks/useTranslation';
+import { useAuth } from '../../context/AuthContext';
 import { useMyServiceRequests } from '../../hooks/services/useServiceRequests';
 import RequestStatusBadge from '../../components/services/RequestStatusBadge';
 import { SERVICE_CATEGORIES } from '../Services';
@@ -34,6 +35,7 @@ const TABS = [
 ];
 
 export default function MyRequests() {
+  const { currentUser } = useAuth();
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -41,7 +43,7 @@ export default function MyRequests() {
   const [phoneFilter, setPhoneFilter] = useState(initialPhone);
 
   // Queries directly from Firebase Firestore in real time
-  const { requests, loading, error } = useMyServiceRequests(phoneFilter);
+  const { requests, loading, error } = useMyServiceRequests(currentUser?.uid, phoneFilter);
 
   const [activeTab, setActiveTab] = useState('all');
   const [cancellingId, setCancellingId] = useState(null);

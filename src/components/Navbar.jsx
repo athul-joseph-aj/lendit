@@ -1,15 +1,26 @@
 // src/components/Navbar.jsx
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, Package, Wrench, Search, PlusCircle, LayoutDashboard, ClipboardList } from 'lucide-react';
+import { Menu, X, Package, Wrench, Search, PlusCircle, LayoutDashboard, ClipboardList, UserCircle, LogIn, LogOut } from 'lucide-react';
 import { useTranslation } from '../hooks/useTranslation';
 import LanguageSelector from './LanguageSelector';
 import Brand from './Brand';
+import { useAuth } from '../context/AuthContext';
 
 export default function Navbar() {
   const { t } = useTranslation();
+  const { currentUser, logout } = useAuth();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      setMobileMenuOpen(false);
+    } catch (error) {
+      console.error('Unable to log out:', error);
+    }
+  };
 
   const desktopLinks = [
     { name: t('home'), path: '/' },
@@ -60,6 +71,35 @@ export default function Navbar() {
           {/* Desktop Right Side Actions */}
           <div className="hidden md:flex items-center gap-4">
             <LanguageSelector />
+            {currentUser ? (
+              <>
+                <Link
+                  to="/profile"
+                  className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-primary transition-colors max-w-44"
+                  title={currentUser.email || ''}
+                >
+                  <UserCircle className="w-5 h-5 shrink-0" />
+                  <span className="truncate">{currentUser.displayName || currentUser.email}</span>
+                </Link>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-red-600 transition-colors"
+                >
+                  <LogOut className="w-4 h-4" />
+                  {t('logout')}
+                </button>
+              </>
+            ) : (
+              <>
+                <Link to="/login" className="text-sm font-medium text-gray-600 hover:text-primary transition-colors">
+                  {t('login')}
+                </Link>
+                <Link to="/register" className="btn btn-primary btn-sm">
+                  {t('signUp')}
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Toggle */}
@@ -79,6 +119,29 @@ export default function Navbar() {
       {mobileMenuOpen && (
         <div className="md:hidden fixed inset-0 z-30 bg-white pt-16 animate-fade-in">
           <div className="p-4 flex flex-col gap-4">
+            {currentUser ? (
+              <>
+                <Link to="/profile" onClick={() => setMobileMenuOpen(false)} className="flex items-center p-3 text-gray-700 hover:bg-gray-50 rounded-lg">
+                  <UserCircle className="w-5 h-5 mr-3 text-gray-400" />
+                  <span className="truncate">{currentUser.displayName || currentUser.email}</span>
+                </Link>
+                <button type="button" onClick={handleLogout} className="flex items-center p-3 text-left text-red-600 hover:bg-red-50 rounded-lg">
+                  <LogOut className="w-5 h-5 mr-3" />
+                  {t('logout')}
+                </button>
+              </>
+            ) : (
+              <>
+                <Link to="/login" onClick={() => setMobileMenuOpen(false)} className="flex items-center p-3 text-gray-700 hover:bg-gray-50 rounded-lg">
+                  <LogIn className="w-5 h-5 mr-3 text-gray-400" />
+                  {t('login')}
+                </Link>
+                <Link to="/register" onClick={() => setMobileMenuOpen(false)} className="flex items-center p-3 text-primary hover:bg-primary-50 rounded-lg font-medium">
+                  <UserCircle className="w-5 h-5 mr-3" />
+                  {t('signUp')}
+                </Link>
+              </>
+            )}
             <Link to="/list-item" onClick={() => setMobileMenuOpen(false)} className="flex items-center p-3 text-gray-700 hover:bg-gray-50 rounded-lg">
               <PlusCircle className="w-5 h-5 mr-3 text-gray-400" />
               {t('listItem')}

@@ -13,7 +13,6 @@ import {
   getDoc,
 } from 'firebase/firestore';
 import { db } from '../../firebase/firebase';
-import { DEMO_MODE } from '../../config/demo';
 import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from '../../hooks/useTranslation';
 import {
@@ -59,13 +58,11 @@ export default function RentalRequests() {
   // ── Real-time listener for pending bookings ──────────────
   useEffect(() => {
     if (!currentUser) return;
-    const q = DEMO_MODE
-      ? query(collection(db, 'bookings'), where('status', '==', 'pending'))
-      : query(
-        collection(db, 'bookings'),
-        where('ownerId', '==', currentUser.uid),
-        where('status', '==', 'pending')
-      );
+    const q = query(
+      collection(db, 'bookings'),
+      where('ownerId', '==', currentUser.uid),
+      where('status', '==', 'pending')
+    );
     const unsub = onSnapshot(q, async (snap) => {
       const enriched = await Promise.all(
         snap.docs.map((d) => enrichBooking(d.id, d.data()))

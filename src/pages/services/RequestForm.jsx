@@ -1,6 +1,5 @@
 // src/pages/services/RequestForm.jsx
 // Service request form — saves to Firestore serviceRequests collection.
-// No authentication required.
 
 import { useState, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
@@ -80,6 +79,11 @@ export default function RequestForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!currentUser) {
+      setError(t('authRequired'));
+      return;
+    }
+
     if (!form.description.trim()) {
       setError(t('problemDescription') + ' is required.');
       return;
@@ -101,7 +105,7 @@ export default function RequestForm() {
     setError('');
 
     try {
-      const customerDocId = 'cust_' + (form.customerPhone.replace(/\D/g, '') || Date.now().toString(36));
+      const customerDocId = currentUser.uid;
 
       // Safe image upload
       let imageUrl = '';
@@ -114,7 +118,7 @@ export default function RequestForm() {
 
       const primaryService = provider?.services?.[0] ?? 'other';
       const requestData = {
-        customerId:      customerDocId,
+        customerId:      currentUser.uid,
         customerName:    form.customerName.trim(),
         customerPhone:   form.customerPhone.trim(),
         providerId:      providerId,

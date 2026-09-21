@@ -10,7 +10,6 @@ import {
 } from 'firebase/firestore';
 import { bookingsCol, itemRequestsCol, getBookingRef } from '../firebase/collections';
 import { db } from '../firebase/firebase';
-import { DEMO_MODE } from '../config/demo';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../hooks/useTranslation';
 import Card from '../components/Card';
@@ -39,11 +38,9 @@ export default function Activity() {
       try {
         setLoadingBookings(true);
         setBookingsError(false);
-        const bookingsQuery = DEMO_MODE
-          ? bookingsCol
-          : currentUser
-            ? query(bookingsCol, where('renterId', '==', currentUser.uid))
-            : null;
+        const bookingsQuery = currentUser
+          ? query(bookingsCol, where('renterId', '==', currentUser.uid))
+          : null;
 
         if (!bookingsQuery) {
           setBookings([]);
@@ -175,11 +172,9 @@ export default function Activity() {
       try {
         setLoadingRequests(true);
         setRequestsError(false);
-        const requestsQuery = DEMO_MODE
-          ? itemRequestsCol
-          : currentUser
-            ? query(itemRequestsCol, where('requesterId', '==', currentUser.uid))
-            : null;
+        const requestsQuery = currentUser
+          ? query(itemRequestsCol, where('requesterId', '==', currentUser.uid))
+          : null;
 
         if (!requestsQuery) {
           setItemRequests([]);

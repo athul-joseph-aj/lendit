@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { getItemRef, getUserRef, bookingsCol } from '../firebase/collections';
-import { DEMO_MODE, DEMO_USER_ID } from '../config/demo';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../hooks/useTranslation';
 import { MapPin, Star, Calendar, ShieldCheck, User } from 'lucide-react';
@@ -81,7 +80,7 @@ export default function ItemDetails() {
   const handleBook = async (e) => {
     e.preventDefault();
 
-    if (!currentUser && !DEMO_MODE) {
+    if (!currentUser) {
       setError(t('authRequired'));
       return;
     }
@@ -111,7 +110,7 @@ export default function ItemDetails() {
         itemId: item.id,
         itemName: item.name,
         itemLocation: item.location || '',
-        renterId: currentUser?.uid || DEMO_USER_ID,
+        renterId: currentUser.uid,
         ownerId: item.ownerId,
         startDate: start,
         endDate: end,
@@ -304,7 +303,7 @@ export default function ItemDetails() {
                   className="w-full mt-4" 
                   size="lg"
                   isLoading={bookingLoading}
-                  disabled={!item.availability || (!currentUser && !DEMO_MODE)}
+                  disabled={!item.availability}
                 >
                   <Calendar className="w-5 h-5 mr-2" />
                   {t('requestToRent')}

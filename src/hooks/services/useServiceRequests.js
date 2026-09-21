@@ -16,11 +16,12 @@ function sortByDateDesc(items) {
 
 /**
  * Returns service requests from Firebase Firestore.
- * Optionally filters by customerId, phone, or name.
+ * Filters by the authenticated customer ID and optionally by phone/name.
+ * @param {string|null} customerId
  * @param {string|null} filterTerm
  * @returns {{ requests: Array, loading: boolean, error: string|null }}
  */
-export function useMyServiceRequests(filterTerm = null) {
+export function useMyServiceRequests(customerId = null, filterTerm = null) {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState(null);
@@ -33,6 +34,10 @@ export function useMyServiceRequests(filterTerm = null) {
       colRef,
       (snap) => {
         let raw = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+        if (customerId) {
+          raw = raw.filter((r) => r.customerId === customerId);
+        }
 
         if (filterTerm && filterTerm.trim()) {
           const term = filterTerm.trim().toLowerCase();
@@ -56,7 +61,7 @@ export function useMyServiceRequests(filterTerm = null) {
     );
 
     return unsub;
-  }, [filterTerm]);
+  }, [customerId, filterTerm]);
 
   return { requests, loading, error };
 }

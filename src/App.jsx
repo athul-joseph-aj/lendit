@@ -53,14 +53,49 @@ function App() {
                 <Route path="/rent" element={<Rent />} />
                 <Route path="/rent/:itemId" element={<ItemDetails />} />
 
-                {/* Services Module Routes (Public - No Authentication Required) */}
+                {/* Services browsing is public; requests and provider tools require auth. */}
                 <Route path="/services" element={<Services />} />
                 <Route path="/services/provider/:providerId" element={<ProviderProfile />} />
-                <Route path="/services/request/:providerId" element={<RequestForm />} />
-                <Route path="/services/my-requests" element={<MyRequests />} />
-                <Route path="/services/provider-register" element={<ProviderRegister />} />
-                <Route path="/services/provider-dashboard" element={<ProviderDashboard />} />
-                <Route path="/services/provider-earnings" element={<ProviderEarnings />} />
+                <Route
+                  path="/services/request/:providerId"
+                  element={
+                    <ProtectedRoute>
+                      <RequestForm />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/services/my-requests"
+                  element={
+                    <ProtectedRoute>
+                      <MyRequests />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/services/provider-register"
+                  element={
+                    <ProtectedRoute>
+                      <ProviderRegister />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/services/provider-dashboard"
+                  element={
+                    <ProtectedRoute>
+                      <ProviderDashboard />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/services/provider-earnings"
+                  element={
+                    <ProtectedRoute>
+                      <ProviderEarnings />
+                    </ProtectedRoute>
+                  }
+                />
                 <Route path="/services/:category" element={<ProviderList />} />
 
                 {/* Protected General Routes */}

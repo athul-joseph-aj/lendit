@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom';
 import { Search, MapPin, PackageOpen, Calendar, Package, CheckCircle2 } from 'lucide-react';
 import { getDocs, query, addDoc, serverTimestamp } from 'firebase/firestore';
 import { itemsCol, bookingsCol, itemRequestsCol } from '../firebase/collections';
-import { DEMO_MODE, DEMO_USER_ID } from '../config/demo';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../hooks/useTranslation';
 import Card from '../components/Card';
@@ -51,7 +50,7 @@ function RentalRequestModal({ isOpen, onClose, item }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!currentUser && !DEMO_MODE) { setError(t('authRequired')); return; }
+    if (!currentUser) { setError(t('authRequired')); return; }
     if (!startDate || !endDate) { setError(t('missingDates')); return; }
     const s = new Date(startDate);
     const e2 = new Date(endDate);
@@ -65,7 +64,7 @@ function RentalRequestModal({ isOpen, onClose, item }) {
         itemId: item.id,
         itemName: item.name,
         itemLocation: item.location || '',
-        renterId: currentUser?.uid || DEMO_USER_ID,
+        renterId: currentUser.uid,
         ownerId: item.ownerId,
         startDate: s,
         endDate: e2,
@@ -241,6 +240,11 @@ function RequestItemModal({ isOpen, onClose }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    if (!currentUser) {
+      setError(t('authRequired'));
+      return;
+    }
+
     if (!startDate || !endDate) {
       setError(t('missingDates'));
       return;
@@ -263,7 +267,7 @@ function RequestItemModal({ isOpen, onClose }) {
       setLoading(true);
       setError('');
       await addDoc(itemRequestsCol, {
-        requesterId: currentUser?.uid || DEMO_USER_ID,
+        requesterId: currentUser.uid,
         itemName,
         category,
         description,
