@@ -2,8 +2,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, MapPin, PackageOpen, Calendar, Package, CheckCircle2 } from 'lucide-react';
-import { getDocs, query, addDoc, serverTimestamp } from 'firebase/firestore';
-import { itemsCol, bookingsCol, itemRequestsCol } from '../firebase/collections';
+import { getDocs, query, where, addDoc, onSnapshot, runTransaction, serverTimestamp } from 'firebase/firestore';
+import { itemsCol, bookingsCol, itemRequestsCol, getItemRequestRef } from '../firebase/collections';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../hooks/useTranslation';
 import Card from '../components/Card';
@@ -393,9 +393,16 @@ function RequestItemModal({ isOpen, onClose }) {
 // ─── MAIN RENT PAGE ───────────────────────────────────────────────────────────
 export default function Rent() {
   const { t } = useTranslation();
+  const { currentUser } = useAuth();
+  const navigate = useNavigate();
 
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [communityRequests, setCommunityRequests] = useState([]);
+  const [communityRequestsLoading, setCommunityRequestsLoading] = useState(true);
+  const [communityRequestsError, setCommunityRequestsError] = useState(false);
+  const [requestActionId, setRequestActionId] = useState(null);
+  const [requestActionError, setRequestActionError] = useState('');
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -435,6 +442,74 @@ export default function Rent() {
   };
 
   useEffect(() => { fetchItems(); }, []);
+
+  // Keep open community requests visible to everyone in real time. Once a
+  // request is fulfilled, its status changes and this listener removes it from
+  // the public list automatically.
+  useEffect(() => {
+    const openRequestsQuery = query(itemRequestsCol, where('status', '==', 'open'));
+    const unsubscribe = onSnapshot(
+      openRequestsQuery,
+      (snapshot) => {
+        const requests = snapshot.docs
+          .map((requestDoc) => ({ id: requestDoc.id, ...requestDoc.data() }))
+          .sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
+        setCommunityRequests(requests);
+        setCommunityRequestsLoading(false);
+        setCommunityRequestsError(false);
+      },
+      (error) => {
+        console.error('Error loading community requests:', error);
+        setCommunityRequests([]);
+        setCommunityRequestsLoading(false);
+        setCommunityRequestsError(true);
+      }
+    );
+
+    return unsubscribe;
+  }, []);
+
+  const fulfillCommunityRequest = async (request) => {
+    if (!currentUser) {
+      navigate('/login');
+      return;
+    }
+
+    if (request.requesterId === currentUser.uid) {
+      setRequestActionError(t('ownRequestCannotBeAccepted'));
+      return;
+    }
+
+    setRequestActionId(request.id);
+    setRequestActionError('');
+
+    try {
+      await runTransaction(db, async (transaction) => {
+        const requestRef = getItemRequestRef(request.id);
+        const requestSnapshot = await transaction.get(requestRef);
+
+        if (!requestSnapshot.exists() || requestSnapshot.data().status !== 'open') {
+          throw new Error('request-already-fulfilled');
+        }
+
+        transaction.update(requestRef, {
+          status: 'fulfilled',
+          fulfilledFor: request.requesterId,
+          fulfilledBy: currentUser.uid,
+          fulfilledAt: serverTimestamp(),
+        });
+      });
+    } catch (error) {
+      console.error('Error fulfilling community request:', error);
+      setRequestActionError(
+        error.message === 'request-already-fulfilled'
+          ? t('requestAlreadyAccepted')
+          : t('requestError')
+      );
+    } finally {
+      setRequestActionId(null);
+    }
+  };
 
   const clearFilters = () => {
     setSearchQuery('');
@@ -551,6 +626,86 @@ export default function Rent() {
           </label>
         </div>
       </Card>
+
+      {/* Community requests — visible to every visitor while open */}
+      <section className="mb-8" aria-labelledby="community-requests-heading">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 mb-4">
+          <div>
+            <h2 id="community-requests-heading" className="text-xl font-bold text-gray-900">
+              {t('communityRequests')}
+            </h2>
+            <p className="text-sm text-gray-500 mt-1">{t('communityRequestsDesc')}</p>
+          </div>
+          <span className="text-xs font-semibold text-primary bg-primary/10 rounded-full px-3 py-1 w-fit">
+            {communityRequests.length} {t('openRequests')}
+          </span>
+        </div>
+
+        {requestActionError && (
+          <div className="mb-4 rounded-lg bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-700">
+            {requestActionError}
+          </div>
+        )}
+
+        {communityRequestsLoading ? (
+          <Loading />
+        ) : communityRequestsError ? (
+          <Card className="text-sm text-red-600">{t('firebaseError')}</Card>
+        ) : communityRequests.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {communityRequests.map((request) => (
+              <Card key={request.id} className="flex flex-col gap-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs text-primary font-semibold uppercase tracking-wider mb-1">
+                      {request.category || t('otherCategory')}
+                    </p>
+                    <h3 className="font-semibold text-gray-900 leading-tight">{request.itemName}</h3>
+                  </div>
+                  <span className="badge badge-active shrink-0">{t('statusOpen')}</span>
+                </div>
+
+                {request.description && (
+                  <p className="text-sm text-gray-600 line-clamp-2">{request.description}</p>
+                )}
+
+                <div className="flex flex-col gap-1.5 text-sm text-gray-600">
+                  {request.location && (
+                    <div className="flex items-center">
+                      <MapPin className="w-4 h-4 mr-2 text-gray-400 shrink-0" />
+                      <span>{request.location}</span>
+                    </div>
+                  )}
+                  {(request.startDate || request.endDate) && (
+                    <div className="flex items-center">
+                      <Calendar className="w-4 h-4 mr-2 text-gray-400 shrink-0" />
+                      <span>{request.startDate ? new Date(request.startDate.toDate?.() || request.startDate).toLocaleDateString() : t('notAvailable')} — {request.endDate ? new Date(request.endDate.toDate?.() || request.endDate).toLocaleDateString() : t('notAvailable')}</span>
+                    </div>
+                  )}
+                  {request.budget && (
+                    <div className="pt-2 mt-1 border-t border-gray-100">
+                      <span className="text-gray-500">{t('budget')}: </span>
+                      <span className="font-semibold text-gray-900">{request.budget}</span>
+                    </div>
+                  )}
+                </div>
+
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="w-full mt-auto"
+                  isLoading={requestActionId === request.id}
+                  onClick={() => fulfillCommunityRequest(request)}
+                >
+                  {t('acceptCommunityRequest')}
+                </Button>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <Card className="text-center text-sm text-gray-500">{t('noOpenRequests')}</Card>
+        )}
+      </section>
 
       {/* Content */}
       {loading ? (
