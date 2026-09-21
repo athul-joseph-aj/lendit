@@ -6,9 +6,16 @@ import {
   FileSearch, MapPin, AlertCircle, Bell, BellRing, BellOff
 } from 'lucide-react';
 import {
-  getDocs, query, where, doc, getDoc, updateDoc, serverTimestamp
+  collectionGroup, getDocs, query, where, doc, getDoc, updateDoc,
+  onSnapshot, runTransaction, serverTimestamp
 } from 'firebase/firestore';
-import { bookingsCol, itemRequestsCol, getBookingRef } from '../firebase/collections';
+import {
+  bookingsCol,
+  itemRequestsCol,
+  getBookingRef,
+  getItemRequestRef,
+  getItemRequestOffersCol,
+} from '../firebase/collections';
 import { db } from '../firebase/firebase';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../hooks/useTranslation';
@@ -28,6 +35,11 @@ export default function Activity() {
   const [loadingRequests, setLoadingRequests] = useState(true);
   const [bookingsError, setBookingsError] = useState(false);
   const [requestsError, setRequestsError] = useState(false);
+  const [requestOffers, setRequestOffers] = useState({});
+  const [providerOffers, setProviderOffers] = useState([]);
+  const [providerOffersLoading, setProviderOffersLoading] = useState(true);
+  const [offerActionId, setOfferActionId] = useState(null);
+  const [offerError, setOfferError] = useState('');
   const [reminderLoading, setReminderLoading] = useState({});
   const [dueReminders, setDueReminders] = useState([]);
   const [reminderError, setReminderError] = useState(false);
@@ -196,6 +208,137 @@ export default function Activity() {
     fetchItemRequests();
   }, [currentUser]);
 
+  // Listen for offers on the signed-in user's requests so the requester can
+  // review providers without exposing those offers to other users.
+  useEffect(() => {
+    if (!itemRequests.length) {
+      setRequestOffers({});
+      return undefined;
+    }
+
+    const unsubscribers = itemRequests.map((request) => (
+      onSnapshot(
+        getItemRequestOffersCol(request.id),
+        (snapshot) => {
+          const offers = snapshot.docs
+            .map((offerDoc) => ({ id: offerDoc.id, ...offerDoc.data() }))
+            .sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
+          setRequestOffers((current) => ({ ...current, [request.id]: offers }));
+        },
+        (error) => {
+          console.error(`Error loading offers for request ${request.id}:`, error);
+        }
+      )
+    ));
+
+    return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
+  }, [itemRequests]);
+
+  // A provider can track every offer they submitted, including offers on
+  // requests that are no longer public after a match.
+  useEffect(() => {
+    if (!currentUser) {
+      setProviderOffers([]);
+      setProviderOffersLoading(false);
+      return undefined;
+    }
+
+    setProviderOffersLoading(true);
+    const providerOffersQuery = query(
+      collectionGroup(db, 'offers'),
+      where('providerId', '==', currentUser.uid)
+    );
+
+    const unsubscribe = onSnapshot(
+      providerOffersQuery,
+      async (snapshot) => {
+        const offers = await Promise.all(snapshot.docs.map(async (offerDoc) => {
+          const requestRef = offerDoc.ref.parent.parent;
+          const requestSnap = requestRef ? await getDoc(requestRef) : null;
+          return {
+            id: offerDoc.id,
+            requestId: requestRef?.id,
+            ...offerDoc.data(),
+            request: requestSnap?.exists() ? { id: requestSnap.id, ...requestSnap.data() } : null,
+          };
+        }));
+        offers.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
+        setProviderOffers(offers);
+        setProviderOffersLoading(false);
+      },
+      (error) => {
+        console.error('Error loading provider offers:', error);
+        setProviderOffers([]);
+        setProviderOffersLoading(false);
+      }
+    );
+
+    return unsubscribe;
+  }, [currentUser]);
+
+  const acceptProviderOffer = async (request, offer) => {
+    if (!currentUser || currentUser.uid !== request.requesterId) {
+      setOfferError(t('onlyRequesterCanAccept'));
+      return;
+    }
+
+    setOfferActionId(offer.id);
+    setOfferError('');
+
+    try {
+      const offersSnapshot = await getDocs(getItemRequestOffersCol(request.id));
+
+      await runTransaction(db, async (transaction) => {
+        const requestRef = getItemRequestRef(request.id);
+        const selectedOfferRef = doc(getItemRequestOffersCol(request.id), offer.id);
+        const [requestSnapshot, selectedOfferSnapshot] = await Promise.all([
+          transaction.get(requestRef),
+          transaction.get(selectedOfferRef),
+        ]);
+
+        if (!requestSnapshot.exists() || requestSnapshot.data().requesterId !== currentUser.uid) {
+          throw new Error('not-request-owner');
+        }
+        if (requestSnapshot.data().status !== 'open') {
+          throw new Error('request-already-matched');
+        }
+        if (!selectedOfferSnapshot.exists() || selectedOfferSnapshot.data().status !== 'pending') {
+          throw new Error('offer-no-longer-available');
+        }
+
+        transaction.update(requestRef, {
+          status: 'matched',
+          selectedProviderId: selectedOfferSnapshot.data().providerId,
+          selectedOfferId: offer.id,
+          matchedAt: serverTimestamp(),
+        });
+        transaction.update(selectedOfferRef, {
+          status: 'accepted',
+          acceptedAt: serverTimestamp(),
+        });
+
+        offersSnapshot.docs.forEach((offerDoc) => {
+          if (offerDoc.id !== offer.id && offerDoc.data().status === 'pending') {
+            transaction.update(offerDoc.ref, {
+              status: 'rejected',
+              rejectedAt: serverTimestamp(),
+            });
+          }
+        });
+      });
+    } catch (error) {
+      console.error('Error accepting provider offer:', error);
+      const messageKey = {
+        'not-request-owner': 'onlyRequesterCanAccept',
+        'request-already-matched': 'requestAlreadyMatched',
+        'offer-no-longer-available': 'offerNoLongerAvailable',
+      }[error.message];
+      setOfferError(`${t(messageKey || 'requestError')} (${error.code || error.message})`);
+    } finally {
+      setOfferActionId(null);
+    }
+  };
+
   // ── Booking status config ────────────────────────────────
   const getBookingStatusConfig = (status) => {
     switch (status) {
@@ -216,6 +359,7 @@ export default function Activity() {
     switch (status) {
       case 'open':      return { label: t('statusOpen'),      color: 'badge-active',                          icon: AlertCircle };
       case 'fulfilled': return { label: t('statusFulfilled'), color: 'badge-done',                            icon: CheckCircle };
+      case 'matched':   return { label: t('statusMatched'),   color: 'bg-indigo-100 text-indigo-800',         icon: CheckCircle };
       case 'cancelled': return { label: t('statusCanceled'),  color: 'badge-canceled',                        icon: XCircle };
       default:          return { label: status,               color: 'bg-gray-100 text-gray-800',             icon: Package };
     }
@@ -281,6 +425,12 @@ export default function Activity() {
           </button>
         ))}
       </div>
+
+      {offerError && activeTab === 'itemRequests' && (
+        <div className="mb-6 rounded-lg bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-700">
+          {offerError}
+        </div>
+      )}
 
       {/* ── My Rentals Tab ── */}
       {activeTab === 'rentals' && (
@@ -386,6 +536,8 @@ export default function Activity() {
             {itemRequests.map((req) => {
               const sc = getRequestStatusConfig(req.status);
               const Icon = sc.icon;
+              const offers = requestOffers[req.id] || [];
+              const selectedOffer = offers.find((offer) => offer.id === req.selectedOfferId);
               return (
                 <Card key={req.id} className="flex flex-col gap-3">
                   {/* Item name + status */}
@@ -426,6 +578,53 @@ export default function Activity() {
                       </div>
                     )}
                   </div>
+
+                  {req.status === 'matched' && (
+                    <div className="rounded-lg border border-indigo-100 bg-indigo-50 p-4 space-y-1.5">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-indigo-700">{t('matchedProvider')}</p>
+                      <p className="font-semibold text-gray-900">
+                        {selectedOffer?.providerName || req.selectedProviderId || t('provider')}
+                      </p>
+                      {selectedOffer?.providerPhone && <p className="text-sm text-gray-600">{t('phone')}: {selectedOffer.providerPhone}</p>}
+                      {selectedOffer?.providerEmail && <p className="text-sm text-gray-600">{t('email')}: {selectedOffer.providerEmail}</p>}
+                      {selectedOffer?.message && <p className="text-sm text-gray-600">{selectedOffer.message}</p>}
+                      {selectedOffer?.price != null && <p className="text-sm font-semibold text-gray-900">{t('price')}: ₹{selectedOffer.price}</p>}
+                    </div>
+                  )}
+
+                  {req.status === 'open' && (
+                    <div className="border-t border-gray-100 pt-3 mt-1 space-y-3">
+                      <h4 className="text-sm font-semibold text-gray-900">{t('availableProviders')}</h4>
+                      {offers.length === 0 ? (
+                        <p className="text-sm text-gray-500">{t('noProviderOffers')}</p>
+                      ) : (
+                        offers.map((offer) => (
+                          <div key={offer.id} className="rounded-lg bg-gray-50 border border-gray-100 p-3 space-y-2">
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="font-semibold text-gray-900">{offer.providerName || t('provider')}</p>
+                              <span className={`badge ${offer.status === 'accepted' ? 'badge-done' : offer.status === 'rejected' ? 'badge-canceled' : 'badge-pending'}`}>
+                                {offer.status === 'pending' ? t('statusPending') : offer.status === 'accepted' ? t('statusAccepted') : t('notSelected')}
+                              </span>
+                            </div>
+                            {offer.message && <p className="text-sm text-gray-600">{offer.message}</p>}
+                            {offer.price != null && <p className="text-sm font-semibold text-gray-900">{t('price')}: ₹{offer.price}</p>}
+                            {offer.status === 'pending' && (
+                              <Button
+                                type="button"
+                                variant="primary"
+                                size="sm"
+                                className="w-full"
+                                isLoading={offerActionId === offer.id}
+                                onClick={() => acceptProviderOffer(req, offer)}
+                              >
+                                {t('acceptProvider')}
+                              </Button>
+                            )}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
                 </Card>
               );
             })}
@@ -444,6 +643,31 @@ export default function Activity() {
             </div>
           </div>
         )
+      )}
+
+      {activeTab === 'itemRequests' && !providerOffersLoading && providerOffers.length > 0 && (
+        <section className="mt-10">
+          <h2 className="text-xl font-bold text-gray-900 mb-1">{t('myProviderOffers')}</h2>
+          <p className="text-sm text-gray-500 mb-4">{t('myProviderOffersDesc')}</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {providerOffers.map((offer) => (
+              <Card key={`${offer.requestId}-${offer.id}`} className="flex flex-col gap-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="text-xs text-primary font-semibold uppercase tracking-wider mb-1">{offer.request?.category || t('otherCategory')}</p>
+                    <h3 className="font-semibold text-gray-900">{offer.request?.itemName || t('itemName')}</h3>
+                  </div>
+                  <span className={`badge ${offer.status === 'accepted' ? 'badge-done' : offer.status === 'rejected' ? 'badge-canceled' : 'badge-pending'}`}>
+                    {offer.status === 'accepted' ? t('statusAccepted') : offer.status === 'rejected' ? t('notSelected') : t('statusPending')}
+                  </span>
+                </div>
+                {offer.request?.location && <p className="text-sm text-gray-600"><MapPin className="inline w-4 h-4 mr-1 text-gray-400" />{offer.request.location}</p>}
+                {offer.message && <p className="text-sm text-gray-600">{offer.message}</p>}
+                {offer.price != null && <p className="text-sm font-semibold text-gray-900">{t('price')}: ₹{offer.price}</p>}
+              </Card>
+            ))}
+          </div>
+        </section>
       )}
     </div>
   );

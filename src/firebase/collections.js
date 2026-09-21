@@ -31,6 +31,7 @@ export const getUserRef            = (userId)     => doc(db, COLLECTIONS.USERS, 
 export const getItemRef            = (itemId)     => doc(db, COLLECTIONS.ITEMS,             itemId);
 export const getBookingRef         = (bookingId)  => doc(db, COLLECTIONS.BOOKINGS,          bookingId);
 export const getItemRequestRef     = (requestId)  => doc(db, COLLECTIONS.ITEM_REQUESTS,     requestId);
+export const getItemRequestOffersCol = (requestId) => collection(db, COLLECTIONS.ITEM_REQUESTS, requestId, 'offers');
 export const getProviderRef        = (providerId) => doc(db, COLLECTIONS.SERVICE_PROVIDERS, providerId);
 export const getServiceRequestRef  = (requestId)  => doc(db, COLLECTIONS.SERVICE_REQUESTS,  requestId);
 

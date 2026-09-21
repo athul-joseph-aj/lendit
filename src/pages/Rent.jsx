@@ -2,8 +2,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, MapPin, PackageOpen, Calendar, Package, CheckCircle2 } from 'lucide-react';
-import { getDocs, query, where, addDoc, onSnapshot, runTransaction, serverTimestamp } from 'firebase/firestore';
-import { itemsCol, bookingsCol, itemRequestsCol, getItemRequestRef } from '../firebase/collections';
+import { getDocs, query, where, addDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { itemsCol, bookingsCol, itemRequestsCol, getItemRequestOffersCol } from '../firebase/collections';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../hooks/useTranslation';
 import Card from '../components/Card';
@@ -270,6 +270,8 @@ function RequestItemModal({ isOpen, onClose }) {
       setError('');
       await addDoc(itemRequestsCol, {
         requesterId: currentUser.uid,
+        requesterName: currentUser.displayName || currentUser.email || '',
+        requesterEmail: currentUser.email || '',
         itemName,
         category,
         description,
@@ -278,12 +280,14 @@ function RequestItemModal({ isOpen, onClose }) {
         endDate: endObj,
         budget: budget || null,
         status: 'open',
+        selectedProviderId: null,
+        selectedOfferId: null,
         createdAt: serverTimestamp(),
       });
       setSuccess(true);
     } catch (err) {
       console.error('Firestore error:', err);
-      setError(t('requestError'));
+      setError(`${t('requestError')} (${err.code || err.message})`);
     } finally {
       setLoading(false);
     }
@@ -392,19 +396,146 @@ function RequestItemModal({ isOpen, onClose }) {
   );
 }
 
+// ─── PROVIDER OFFER MODAL ────────────────────────────────────────────────────
+function ProvideItemModal({ isOpen, onClose, request }) {
+  const { t } = useTranslation();
+  const { currentUser } = useAuth();
+  const [providerName, setProviderName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [message, setMessage] = useState('');
+  const [price, setPrice] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setProviderName(currentUser?.displayName || currentUser?.email || '');
+    setPhone('');
+    setMessage('');
+    setPrice('');
+    setSuccess(false);
+    setError('');
+  }, [isOpen, currentUser, request]);
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+
+    if (!currentUser) {
+      setError(t('authRequired'));
+      return;
+    }
+
+    if (request?.requesterId === currentUser.uid) {
+      setError(t('ownRequestCannotBeAccepted'));
+      return;
+    }
+
+    if (!providerName.trim() || !phone.trim()) {
+      setError(t('providerDetailsRequired'));
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError('');
+      await addDoc(getItemRequestOffersCol(request.id), {
+        providerId: currentUser.uid,
+        providerName: providerName.trim(),
+        providerEmail: currentUser.email || '',
+        providerPhone: phone.trim(),
+        message: message.trim(),
+        price: price === '' ? null : Number(price),
+        status: 'pending',
+        createdAt: serverTimestamp(),
+      });
+      setSuccess(true);
+    } catch (submissionError) {
+      console.error('Error submitting provider offer:', submissionError);
+      setError(`${t('requestError')} (${submissionError.code || submissionError.message})`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!request) return null;
+
+  const formatRequestDate = (value) => value
+    ? new Date(value.toDate?.() || value).toLocaleDateString()
+    : t('notAvailable');
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title={t('provideRequestedItem')} maxWidth="max-w-lg">
+      {success ? (
+        <div className="text-center py-5">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <CheckCircle2 className="w-8 h-8 text-green-600" />
+          </div>
+          <h3 className="text-xl font-bold text-gray-900 mb-2">{t('offerSubmitted')}</h3>
+          <p className="text-gray-500 mb-6">{t('offerSubmittedDesc')}</p>
+          <Button variant="primary" onClick={onClose}>{t('close')}</Button>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="rounded-lg bg-gray-50 border border-gray-100 p-4 space-y-2">
+            <p className="text-xs text-primary font-semibold uppercase tracking-wider">{request.category || t('otherCategory')}</p>
+            <h3 className="font-semibold text-gray-900">{request.itemName}</h3>
+            {request.description && <p className="text-sm text-gray-600">{request.description}</p>}
+            <p className="text-sm text-gray-600">{request.location || t('notAvailable')}</p>
+            <p className="text-sm text-gray-600">{formatRequestDate(request.startDate)} — {formatRequestDate(request.endDate)}</p>
+          </div>
+
+          <Input
+            label={t('providerName')}
+            value={providerName}
+            onChange={(event) => setProviderName(event.target.value)}
+            required
+          />
+          <Input
+            label={t('phone')}
+            type="tel"
+            value={phone}
+            onChange={(event) => setPhone(event.target.value)}
+            required
+          />
+          <Input
+            label={t('price')}
+            type="number"
+            min="0"
+            value={price}
+            onChange={(event) => setPrice(event.target.value)}
+            placeholder={t('optionalPrice')}
+          />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('message')}</label>
+            <textarea
+              className="input w-full resize-none"
+              rows={3}
+              value={message}
+              onChange={(event) => setMessage(event.target.value)}
+              placeholder={t('providerMessagePlaceholder')}
+            />
+          </div>
+
+          {error && <p className="text-sm text-red-600">{error}</p>}
+          <Button type="submit" variant="primary" className="w-full" isLoading={loading}>
+            {t('submitOffer')}
+          </Button>
+        </form>
+      )}
+    </Modal>
+  );
+}
+
 // ─── MAIN RENT PAGE ───────────────────────────────────────────────────────────
 export default function Rent() {
   const { t } = useTranslation();
-  const { currentUser } = useAuth();
-  const navigate = useNavigate();
 
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [communityRequests, setCommunityRequests] = useState([]);
   const [communityRequestsLoading, setCommunityRequestsLoading] = useState(true);
   const [communityRequestsError, setCommunityRequestsError] = useState(false);
-  const [requestActionId, setRequestActionId] = useState(null);
-  const [requestActionError, setRequestActionError] = useState('');
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -418,6 +549,7 @@ export default function Rent() {
   // Modals
   const [rentalModalItem, setRentalModalItem] = useState(null);
   const [itemRequestModalOpen, setItemRequestModalOpen] = useState(false);
+  const [offerRequest, setOfferRequest] = useState(null);
 
   const categories = [
     { value: 'Electronics', label: t('electronicsCategory') },
@@ -470,48 +602,6 @@ export default function Rent() {
 
     return unsubscribe;
   }, []);
-
-  const fulfillCommunityRequest = async (request) => {
-    if (!currentUser) {
-      navigate('/login');
-      return;
-    }
-
-    if (request.requesterId === currentUser.uid) {
-      setRequestActionError(t('ownRequestCannotBeAccepted'));
-      return;
-    }
-
-    setRequestActionId(request.id);
-    setRequestActionError('');
-
-    try {
-      await runTransaction(db, async (transaction) => {
-        const requestRef = getItemRequestRef(request.id);
-        const requestSnapshot = await transaction.get(requestRef);
-
-        if (!requestSnapshot.exists() || requestSnapshot.data().status !== 'open') {
-          throw new Error('request-already-fulfilled');
-        }
-
-        transaction.update(requestRef, {
-          status: 'fulfilled',
-          fulfilledFor: request.requesterId,
-          fulfilledBy: currentUser.uid,
-          fulfilledAt: serverTimestamp(),
-        });
-      });
-    } catch (error) {
-      console.error('Error fulfilling community request:', error);
-      setRequestActionError(
-        error.message === 'request-already-fulfilled'
-          ? t('requestAlreadyAccepted')
-          : t('requestError')
-      );
-    } finally {
-      setRequestActionId(null);
-    }
-  };
 
   const clearFilters = () => {
     setSearchQuery('');
@@ -643,12 +733,6 @@ export default function Rent() {
           </span>
         </div>
 
-        {requestActionError && (
-          <div className="mb-4 rounded-lg bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-700">
-            {requestActionError}
-          </div>
-        )}
-
         {communityRequestsLoading ? (
           <Loading />
         ) : communityRequestsError ? (
@@ -696,10 +780,9 @@ export default function Rent() {
                   type="button"
                   variant="secondary"
                   className="w-full mt-auto"
-                  isLoading={requestActionId === request.id}
-                  onClick={() => fulfillCommunityRequest(request)}
+                  onClick={() => setOfferRequest(request)}
                 >
-                  {t('acceptCommunityRequest')}
+                  {t('iCanProvideThis')}
                 </Button>
               </Card>
             ))}
@@ -796,6 +879,11 @@ export default function Rent() {
       <RequestItemModal
         isOpen={itemRequestModalOpen}
         onClose={() => setItemRequestModalOpen(false)}
+      />
+      <ProvideItemModal
+        isOpen={!!offerRequest}
+        onClose={() => setOfferRequest(null)}
+        request={offerRequest}
       />
     </div>
   );
